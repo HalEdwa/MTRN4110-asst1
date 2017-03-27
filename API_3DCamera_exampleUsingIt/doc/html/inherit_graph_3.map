@@ -1,0 +1,17 @@
+<map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
+<area shape="rect" id="node2" href="$classDepthSense_1_1AudioNode_1_1NewSampleReceived2Event.html" title="Event raised when an audio sample is captured. " alt="" coords="110,5,301,46"/>
+<area shape="rect" id="node3" href="$classDepthSense_1_1AudioNode_1_1NewSampleReceivedEvent.html" title="Event raised when an audio sample is captured. " alt="" coords="114,70,297,111"/>
+<area shape="rect" id="node4" href="$classDepthSense_1_1ColorNode_1_1NewSampleReceived2Event.html" title="Event raised when a color sample is captured. " alt="" coords="110,135,301,177"/>
+<area shape="rect" id="node5" href="$classDepthSense_1_1ColorNode_1_1NewSampleReceivedEvent.html" title="Event raised when a color sample is captured. " alt="" coords="114,201,297,242"/>
+<area shape="rect" id="node6" href="$classDepthSense_1_1Context_1_1ClientConnectedEvent.html" title="Event raised when a client connects. " alt="" coords="127,266,284,307"/>
+<area shape="rect" id="node7" href="$classDepthSense_1_1Context_1_1ClientDisconnectedEvent.html" title="Event raised when a client disconnects. " alt="" coords="118,331,293,373"/>
+<area shape="rect" id="node8" href="$classDepthSense_1_1Context_1_1DeviceAddedEvent.html" title="Event raised when a camera device is attached to the host. " alt="" coords="132,397,279,438"/>
+<area shape="rect" id="node9" href="$classDepthSense_1_1Context_1_1DeviceRemovedEvent.html" title="Event raised when a camera device is detached from the host. " alt="" coords="129,462,282,503"/>
+<area shape="rect" id="node10" href="$classDepthSense_1_1DepthNode_1_1ButtonPressedEvent.html" title="Event raised when a button is pressed. " alt="" coords="123,527,288,569"/>
+<area shape="rect" id="node11" href="$classDepthSense_1_1DepthNode_1_1ButtonReleasedEvent.html" title="Event raised when a button is release. " alt="" coords="123,593,288,634"/>
+<area shape="rect" id="node12" href="$classDepthSense_1_1DepthNode_1_1NewSampleReceived2Event.html" title="Event raised when a depth sample is captured. " alt="" coords="110,658,301,699"/>
+<area shape="rect" id="node13" href="$classDepthSense_1_1DepthNode_1_1NewSampleReceivedEvent.html" title="Event raised when a depth sample is captured. " alt="" coords="114,723,297,765"/>
+<area shape="rect" id="node14" href="$classDepthSense_1_1Device_1_1NodeAddedEvent.html" title="Event raised when a node is attached to the current device. " alt="" coords="136,789,275,830"/>
+<area shape="rect" id="node15" href="$classDepthSense_1_1Device_1_1NodeRemovedEvent.html" title="Event raised when a node is detached from the current device. " alt="" coords="133,854,278,895"/>
+<area shape="rect" id="node16" href="$classDepthSense_1_1Interface_1_1PropertyChangedEvent.html" title="Event raised when a property has changed. " alt="" coords="124,919,287,961"/>
+</map>

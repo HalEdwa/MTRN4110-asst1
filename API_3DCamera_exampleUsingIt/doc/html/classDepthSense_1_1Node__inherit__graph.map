@@ -1,0 +1,7 @@
+<map id="DepthSense::Node" name="DepthSense::Node">
+<area shape="rect" id="node3" href="$classDepthSense_1_1AudioNode.html" title="Represents an audio stream data source. " alt="" coords="405,5,569,32"/>
+<area shape="rect" id="node4" href="$classDepthSense_1_1ColorNode.html" title="Represents a color stream data source. " alt="" coords="406,56,567,83"/>
+<area shape="rect" id="node5" href="$classDepthSense_1_1DepthNode.html" title="Represents a depth stream data source. " alt="" coords="404,107,569,133"/>
+<area shape="rect" id="node6" href="$classDepthSense_1_1UnsupportedNode.html" title="Represents an unsupported stream data source. " alt="" coords="385,157,589,184"/>
+<area shape="rect" id="node2" href="$classDepthSense_1_1Interface.html" title="The base interface class. " alt="" coords="6,81,157,108"/>
+</map>
