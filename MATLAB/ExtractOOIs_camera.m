@@ -1,41 +1,27 @@
-function r = ExtractOOIs(ranges,intensities)
+function r = ExtractOOIs(Y)
     maxPoleDia = 0.2;
     r.N = 0;
     r.Centers.x = [];
     r.Centers.y = [];
     r.Sizes   = [];
-    brightPts = find(intensities ~=0);
-
-
-    % 2D points, expressed in Cartesian. From the sensor's perpective.
-    angles = [0:360]'*0.5* pi/180;% associated angle for each range of scan
-    X = cos(angles).*ranges;
-    Y = sin(angles).*ranges;    
     clusterEndPts = [1];%have to initialise
 
+    X = [1:length(ScanArray)];
+    
     %find all clusters of points:
     for i = 2:length(ranges) - 1
-        
-        %turns out using pdist is literally 9.52 times slower than
-        %comparing squares. makes the whole program run about 7 times
-        %faster
-        if (X(i) - X(i-1))^2 + (Y(i) - Y(i-1))^2 > maxPoleDia^2%pdist([X(i), Y(i); X(i-1), Y(i-1)]) > maxPoleDia
+        if (X(i) - X(i-1))^2 + (Y(i) - Y(i-1))^2 > maxPoleDia^2
             if (X(i) - X(i+1))^2 + (Y(i) - Y(i+1))^2 > maxPoleDia^2
                 clusterEndPts = [clusterEndPts, i - 1, i + 1];
                 i = i + 1;
             else 
                 clusterEndPts = [clusterEndPts, i - 1, i];
             end
-
-
         end
     end
 
-
     lineColor = [0 1 1];
     for i = 1:2:length(clusterEndPts) - 1
-
-
         if ~any(find(brightPts > clusterEndPts(i) & brightPts < clusterEndPts(i+1)))
             continue
         end
