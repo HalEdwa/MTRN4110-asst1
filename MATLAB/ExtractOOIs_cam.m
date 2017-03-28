@@ -2,6 +2,7 @@ function r = ExtractOOIs_cam(X, Y)
     filterSize = 0.02;
     poleDia = 0.09;
     poleDiaTol = 0.3;
+    
     r.N = 0;
     r.Centers.x = [];
     r.Centers.y = [];
@@ -22,7 +23,7 @@ function r = ExtractOOIs_cam(X, Y)
         end
     end
 
-    clusterEndPts = [clusterEndPts, length(X)]
+    clusterEndPts = [clusterEndPts, length(X)];
     lineColor = [0 1 1];
     for i = 1:2:length(clusterEndPts) - 1
         %the below two lines visualise each cluster in a different colour
@@ -41,9 +42,6 @@ function r = ExtractOOIs_cam(X, Y)
         r.Centers.y = [r.Centers.y mean(Y(clusterEndPts(i):clusterEndPts(i+1)))];
         r.Sizes = [r.Sizes pdist( [X(clusterEndPts(i)), Y(clusterEndPts(i));
                            X(clusterEndPts(i+1)), Y(clusterEndPts(i+1))])];
-     
     end
-%     plot(X, Y, 'k.')
-%     plot(X(brightPts), Y(brightPts), 'r.')
 return;
 end
