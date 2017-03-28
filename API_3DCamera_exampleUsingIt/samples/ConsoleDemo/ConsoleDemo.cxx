@@ -48,6 +48,8 @@ SOCKET ClientSock; //Client ID on Server Side
 
 #define DEFAULT_BUFLEN 512
 
+#define HEIGHT 120
+#define WIDTH 160
 
 using namespace DepthSense;
 //using namespace std;
@@ -278,9 +280,31 @@ void onNewDepthSample(DepthNode node, DepthNode::NewSampleReceivedData data)
 	
 	static int BufferCounter = 0;
 
+	int16_t depthMapSampled[HEIGHT*WIDTH];
+	
+	int counter = 0;
+	int samplePosition = HEIGHT*WIDTH;
+	/*
+	for (int i = 1; i < HEIGHT*WIDTH; i++) {
+		if (counter > WIDTH) {
+			samplePosition += WIDTH;
+			counter = 1;
+		}
+
+		depthMapSampled[i] = data.depthMap[samplePosition];
+		samplePosition++;
+		counter++;
+	}		*/
+
+	for (int i = 0; i < HEIGHT*WIDTH - 1; i++) {
+		depthMapSampled[i] = data.depthMap[counter];
+		counter += 2;
+	}
+
 	if (BufferCounter >= 5) {
 		BufferCounter = 0;
-		send_all(ClientSock, data.depthMap, 76800 * sizeof(int16_t));
+		//send_all(ClientSock, data.depthMap, 76800 * sizeof(int16_t));
+		send_all(ClientSock, depthMapSampled, HEIGHT*WIDTH * sizeof(int16_t));
 		//send(ClientSock, (char*)&data.depthMap[38400], sizeof(uint16_t), 0);
 		//std::cout << data.depthMap[38400] << std::endl;
 	}
