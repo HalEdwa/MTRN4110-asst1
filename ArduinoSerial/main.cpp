@@ -96,7 +96,7 @@ void acceptThread() {
 
 int main() {
 
-	Serial SR("\\\\.\\COM3");
+	Serial SR("\\\\.\\COM4");
 	if (SR.IsConnected() == 0) {
 		std::cout << "Did not Connect Serial" << std::endl;
 		Sleep(10000);
