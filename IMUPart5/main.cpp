@@ -94,7 +94,7 @@ void acceptThread() {
 
 int main() {
 
-	Serial SR("\\\\.\\COM3");
+	Serial SR("\\\\.\\COM6");
 	if (SR.IsConnected() == 0) {
 		std::cout << "Did not Connect Serial" << std::endl;
 		Sleep(10000);
@@ -136,7 +136,7 @@ int main() {
 		send(ClientSock, incomingData, BUFFERSIZE-1, 0);
 
 		std::cout << incomingData << std::endl;
-		Sleep(1000);
+		Sleep(10);
 	}
 
 	return 0;

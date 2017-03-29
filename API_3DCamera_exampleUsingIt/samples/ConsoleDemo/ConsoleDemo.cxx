@@ -9,7 +9,7 @@
 // its principal place of business at Boulevard de la Plainelaan 11,
 // 1050 Brussels (Belgium), registered with the Crossroads bank for
 // enterprises under company number 0811 341 454 - "Softkinetic
-// Sensors").
+// Sensors")
 //
 // The source code of the SoftKinetic DepthSense Camera Drivers is
 // proprietary and confidential information of Softkinetic Sensors NV.
@@ -38,9 +38,6 @@
 
 #include <io.h>
 
-
-
-
 #define MY_MESSAGE_NOTIFICATION      1048 //Custom notification message
 HWND hwnd;
 SOCKET ss; //Server
@@ -67,8 +64,6 @@ bool g_bDeviceFound = false;
 
 ProjectionHelper* g_pProjHelper = NULL;
 StereoCameraParameters g_scp;
-
-
 
 void CloseConnection(SOCKET ks) {
 	if (ks) {
@@ -199,7 +194,6 @@ char* intarraytocharpointer(std::vector<int> values) {
 	return buffer;
 }
 
-
 /*----------------------------------------------------------------------------*/
 // New audio sample event handler
 void onNewAudioSample(AudioNode node, AudioNode::NewSampleReceivedData data)
@@ -283,36 +277,46 @@ void onNewDepthSample(DepthNode node, DepthNode::NewSampleReceivedData data)
 	int16_t depthMapSampled[HEIGHT*WIDTH];
 	
 	int counter = 0;
-	int samplePosition = HEIGHT*WIDTH;
-	/*
-	for (int i = 1; i < HEIGHT*WIDTH; i++) {
-		if (counter > WIDTH) {
-			samplePosition += WIDTH;
-			counter = 1;
+	
+	//sub-sample image from 240*320 to 120*160
+	for (int i = 0; i < HEIGHT; i++) {
+		for (int j = 0; j < WIDTH; j++) {
+			depthMapSampled[counter] = data.depthMap[i*WIDTH*4 + j*2];
+			counter++;
 		}
-
-		depthMapSampled[i] = data.depthMap[samplePosition];
-		samplePosition++;
-		counter++;
-	}		*/
-
-	for (int i = 0; i < HEIGHT*WIDTH - 1; i++) {
-		depthMapSampled[i] = data.depthMap[counter];
-		counter += 2;
 	}
+
+	counter = 0;
+
+	//std::cout << data.vertices[] << std::endl;
+	int rawWidth = 2 * WIDTH;
+	int rawHeight = 2 * HEIGHT;
+
+	int16_t xyz[WIDTH*HEIGHT*4*3];
+	/*
+	for (int i = 0; i < rawWidth*rawHeight; i++) {
+		xyz[i] = data.vertices[i].x;
+		xyz[i+rawWidth*rawHeight] = data.vertices[i].y;
+		xyz[i+rawWidth*rawHeight*2] = data.vertices[i].z;
+	}*/
+
+	/*
+	for (int i = 0; i < HEIGHT; i++) {
+		for (int j = 0; j < WIDTH; j++) {
+			xyz[counter] = data.vertices[i*WIDTH * 4 + j * 2].x;
+			xyz[counter+HEIGHT*WIDTH] = data.vertices[i*WIDTH * 4 + j * 2].y;
+			xyz[counter+HEIGHT*WIDTH*2] = data.vertices[i*WIDTH * 4 + j * 2].z;qt
+			counter++;
+		}
+	}*/
 
 	if (BufferCounter >= 5) {
 		BufferCounter = 0;
-		//send_all(ClientSock, data.depthMap, 76800 * sizeof(int16_t));
-		send_all(ClientSock, depthMapSampled, HEIGHT*WIDTH * sizeof(int16_t));
-		//send(ClientSock, (char*)&data.depthMap[38400], sizeof(uint16_t), 0);
-		//std::cout << data.depthMap[38400] << std::endl;
+		send_all(ClientSock, depthMapSampled, sizeof(int16_t)*HEIGHT*WIDTH);
 	}
-	//for (int i =110; i < 210; i++)
-	//std::cout << data.depthMap[i + 240 * 60] << " size: "<< data.depthMap.size() << sizeof(int16_t) << std::endl;
-	
-	BufferCounter++;
 
+	BufferCounter++;
+	
     Point2D p2DPoints[4];
     g_pProjHelper->get2DCoordinates ( p3DPoints, p2DPoints, 4, CAMERA_PLANE_COLOR);
    

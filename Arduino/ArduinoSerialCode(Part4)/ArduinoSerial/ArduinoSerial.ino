@@ -23,10 +23,22 @@ void loop() {
   analog3= analogRead(A2)/4;
   delay(10);
   Serial.print("A");
+  if (analog1<10) 
+  {Serial.print(NULL); }
+  if (analog1<100)
+  {Serial.print(NULL); }
   Serial.print(analog1); 
   Serial.print("B");
+   if (analog2<10) 
+  {Serial.print(NULL); }
+  if (analog2<100)
+  {Serial.print(NULL); }
   Serial.print(analog2); 
   Serial.print("C");
+   if (analog3<10) 
+  {Serial.print(NULL); }
+  if (analog3<100)
+  {Serial.print(NULL); }
   Serial.print(analog3); 
   delay(500);
   

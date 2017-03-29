@@ -96,7 +96,7 @@ void acceptThread() {
 
 int main() {
 
-	Serial SR("\\\\.\\COM4");
+	Serial SR("\\\\.\\COM6");
 	if (SR.IsConnected() == 0) {
 		std::cout << "Did not Connect Serial" << std::endl;
 		Sleep(10000);
@@ -122,25 +122,28 @@ int main() {
 		std::cout << "Bad Socket" << std::endl;
 	}
 
+	int timeBuffer = 0;
+
 	char incomingData[13] = "A000B000C000";
 	while (1) {
-		
-		SR.ReadData(incomingData, 12);
-		std::cout <<"Pre-Shift:"<< incomingData << std::endl;
-		while (incomingData[0] != 'A') {
-			//char shift 
-			char holder = incomingData[0];
-			for (int i = 0; i < 11; i++) {
-				incomingData[i] = incomingData[i + 1];
-			}
-			incomingData[11] = holder;
+		if (timeBuffer > 10) {
+			SR.ReadData(incomingData, 12);
+			std::cout << "Pre-Shift:" << incomingData << std::endl;
+			while (incomingData[0] != 'A') {
+				//char shift 
+				char holder = incomingData[0];
+				for (int i = 0; i < 11; i++) {
+					incomingData[i] = incomingData[i + 1];
+				}
+				incomingData[11] = holder;
 
+			}
+			std::cout << "Pre-PostShift:" << incomingData << std::endl;
+			send(ClientSock, incomingData, 12, 0);
+			timeBuffer = 0;
 		}
-		std::cout << "Pre-PostShift:" << incomingData << std::endl;
-		send(ClientSock, incomingData, 12, 0);
-		
-		
-		Sleep(1000);
+
+		timeBuffer++;
 	}
 
 	return 0;
