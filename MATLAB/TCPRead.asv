@@ -40,7 +40,7 @@ end
 disp('Connected to server');
 
 %recorded data:
-recordedData = zeros(height, width, 100);
+recordedData = zeros(width, height, 100);
 iteration = 0;
 while ((Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0))         
     if(t.BytesAvailable > 0)    %if connected
@@ -61,7 +61,7 @@ while ((Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0))
           end
         end
     end
-    
+    recordedData(:, :, iteration) = 
     yDist = yDist/1000;  %Convert from mm to m
     yDist(yDist < 0) = -1;    %Negative depths to be disregarded
     yDist(yDist > MaxDist) = -1;   %Value for depth too far away disregarded
@@ -78,15 +78,10 @@ while ((Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0))
     set(guiH.DepthScan, 'xdata', xDist, 'ydata', yDist);
     PlotOOIs(OOIs, guiH.OOI);
     
-    recordedData(:, :, iteration) = DepthMap;
-    if recordedData(end, end, end) ~= 0
-        break
-    end
     pause(0.01);    %~10ms delay
 end
 
 %program end
-disp('data recievel finished, exiting program');
 pause(1)
 fclose(t);
 delete(t);
