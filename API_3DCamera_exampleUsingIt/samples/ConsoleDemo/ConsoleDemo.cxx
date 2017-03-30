@@ -35,8 +35,8 @@
 #include <conio.h>
 #include <thread>
 #include <string>
-
 #include <io.h>
+#include <chrono>
 
 #define MY_MESSAGE_NOTIFICATION      1048 //Custom notification message
 HWND hwnd;
@@ -64,6 +64,9 @@ bool g_bDeviceFound = false;
 
 ProjectionHelper* g_pProjHelper = NULL;
 StereoCameraParameters g_scp;
+
+auto system_start = std::chrono::high_resolution_clock::now();
+auto lastTime = std::chrono::high_resolution_clock::now();
 
 void CloseConnection(SOCKET ks) {
 	if (ks) {
@@ -244,40 +247,11 @@ void send_all(int sock, const void *vbuf, size_t size_buf)
 /*----------------------------------------------------------------------------*/
 // New depth sample event handler
 void onNewDepthSample(DepthNode node, DepthNode::NewSampleReceivedData data)
-{
-	//printf("DepthVerticiesSize#%u: %d\n", g_dFrames, data.vertices.size());
-	//printf("Z#%u: %d\n", g_dFrames, data.vertices);
-
-	// Project some 3D points in the Color Frame
-	if (!g_pProjHelper)
-	{
-		g_pProjHelper = new ProjectionHelper(data.stereoCameraParameters);
-		g_scp = data.stereoCameraParameters;
-	}
-	else if (g_scp != data.stereoCameraParameters)
-	{
-		g_pProjHelper->setStereoCameraParameters(data.stereoCameraParameters);
-		g_scp = data.stereoCameraParameters;
-	}
-
-	int32_t w, h;
-	FrameFormat_toResolution(data.captureConfiguration.frameFormat, &w, &h);
-	int cx = w / 2;
-	int cy = h / 2;
-
-	Vertex p3DPoints[4];
-
-	//p3DPoints[0] = data.vertices[(cy - h / 4)*w + cx - w / 4];
-	//p3DPoints[1] = data.vertices[(cy - h / 4)*w + cx + w / 4];
-	//p3DPoints[2] = data.vertices[(cy + h / 4)*w + cx + w / 4];
-	//p3DPoints[3] = data.vertices[(cy + h / 4)*w + cx - w / 4];	
-	
-	static int BufferCounter = 0;
-
+{	
 	int16_t depthMapSampled[HEIGHT*WIDTH];
 	
 	int counter = 0;
-	
+
 	//sub-sample image from 240*320 to 120*160
 	for (int i = 0; i < HEIGHT; i++) {
 		for (int j = 0; j < WIDTH; j++) {
@@ -286,46 +260,35 @@ void onNewDepthSample(DepthNode node, DepthNode::NewSampleReceivedData data)
 		}
 	}
 
-	counter = 0;
-
-	//std::cout << data.vertices[] << std::endl;
-	int rawWidth = 2 * WIDTH;
-	int rawHeight = 2 * HEIGHT;
-
-	int16_t xyz[WIDTH*HEIGHT*4*3];
 	/*
-	for (int i = 0; i < rawWidth*rawHeight; i++) {
-		xyz[i] = data.vertices[i].x;
-		xyz[i+rawWidth*rawHeight] = data.vertices[i].y;
-		xyz[i+rawWidth*rawHeight*2] = data.vertices[i].z;
-	}*/
+	//y u no work...crashes whenever you access data.vertices because it is completely empty
+	int16_t xyz[WIDTH*HEIGHT * 3];
 
-	/*
+	int counter = 0;
 	for (int i = 0; i < HEIGHT; i++) {
 		for (int j = 0; j < WIDTH; j++) {
-			xyz[counter] = data.vertices[i*WIDTH * 4 + j * 2].x;
-			xyz[counter+HEIGHT*WIDTH] = data.vertices[i*WIDTH * 4 + j * 2].y;
-			xyz[counter+HEIGHT*WIDTH*2] = data.vertices[i*WIDTH * 4 + j * 2].z;qt
+			xyz[counter] = 2;// data.vertices[5000].x;
+			xyz[counter + HEIGHT*WIDTH] = 2; //data.vertices[5000].y;
+			xyz[counter + HEIGHT*WIDTH * 2] = 2; //data.vertices[5000].z;
 			counter++;
+			//std::cout << counter << std::endl;
 		}
-	}*/
-
-	if (BufferCounter >= 5) {
-		BufferCounter = 0;
-		send_all(ClientSock, depthMapSampled, sizeof(int16_t)*HEIGHT*WIDTH);
 	}
+	std::cout << "x: " << data.vertices[5000].x << " y: " << data.vertices[5000].y << " z: " << data.vertices[5000].z << std::endl;
+	*/
 
-	BufferCounter++;
+	int freq = 10;
 	
-    Point2D p2DPoints[4];
-    g_pProjHelper->get2DCoordinates ( p3DPoints, p2DPoints, 4, CAMERA_PLANE_COLOR);
-   
-    g_dFrames++;
+	auto currentTime = std::chrono::high_resolution_clock::now();
+	auto dur = currentTime - lastTime;
 
-    // Quit the main loop after 200 depth frames received
-	//if (g_dFrames == 200) {
-	//	g_context.quit();
-	//}
+	//auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(dur).count();
+	//std::cout << "Time Elapsed: " << ms << std::endl;
+
+	if ((currentTime - lastTime) > (std::chrono::milliseconds::duration(1000 / freq))) {
+		send_all(ClientSock, depthMapSampled, sizeof(int16_t)*HEIGHT*WIDTH);
+		lastTime = currentTime;
+	}
 }
 
 /*----------------------------------------------------------------------------*/

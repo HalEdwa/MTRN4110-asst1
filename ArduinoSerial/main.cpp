@@ -5,8 +5,7 @@
 #include <thread>
 #include <string>
 #include "Serial.h"
-
-
+#include <chrono>
 
 #define MY_MESSAGE_NOTIFICATION      1048 //Custom notification message
 HWND hwnd;
@@ -18,7 +17,8 @@ SOCKET ClientSock; //Client ID on Server Side
 char recvbuf[DEFAULT_BUFLEN];
 int recvbuflen = DEFAULT_BUFLEN;
 
-
+auto system_start = std::chrono::high_resolution_clock::now();
+auto lastTime = std::chrono::high_resolution_clock::now();
 
 void CloseConnection(SOCKET ks) {
 	if (ks) {
@@ -29,7 +29,6 @@ void CloseConnection(SOCKET ks) {
 
 int ListenOnPort(int portno)
 {
-
 	WSADATA w;
 	int error = WSAStartup(0x0202, &w);   // Fill in WSA info
 
@@ -37,7 +36,6 @@ int ListenOnPort(int portno)
 	{
 		std::cout << "winsock error" << std::endl;
 		return false; //For some reason we couldn't start Winsock
-
 	}
 
 	if (w.wVersion != 0x0202) //Wrong Winsock version?
@@ -83,7 +81,6 @@ int ListenOnPort(int portno)
 	//made
 	return listen(ss, SOMAXCONN);
 
-
 	//Don't forget to clean up with CloseConnection()!
 }
 
@@ -93,16 +90,13 @@ void acceptThread() {
 	ClientSock = accept(ss, NULL, NULL);
 }
 
-
 int main() {
-
 	Serial SR("\\\\.\\COM6");
 	if (SR.IsConnected() == 0) {
 		std::cout << "Did not Connect Serial" << std::endl;
-		Sleep(10000);
+		Sleep(3000);
 		return 1;
-	}
-	
+	}	
 
 	std::cout << "Press any key to start the Server:" << std::endl;
 	if (_getch()) {
@@ -126,7 +120,17 @@ int main() {
 
 	char incomingData[13] = "A000B000C000";
 	while (1) {
-		if (timeBuffer > 10) {
+		int freq = 50;
+
+		auto currentTime = std::chrono::high_resolution_clock::now();
+		auto dur = currentTime - lastTime;
+
+		//auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(dur).count();
+		//std::cout << "Time Elapsed: " << ms << std::endl;
+
+		if ((currentTime - lastTime) > (std::chrono::milliseconds::duration(1000 / freq))) {
+			lastTime = currentTime;
+
 			SR.ReadData(incomingData, 12);
 			std::cout << "Pre-Shift:" << incomingData << std::endl;
 			while (incomingData[0] != 'A') {
@@ -136,14 +140,10 @@ int main() {
 					incomingData[i] = incomingData[i + 1];
 				}
 				incomingData[11] = holder;
-
 			}
 			std::cout << "Pre-PostShift:" << incomingData << std::endl;
 			send(ClientSock, incomingData, 12, 0);
-			timeBuffer = 0;
 		}
-
-		timeBuffer++;
 	}
 
 	return 0;
