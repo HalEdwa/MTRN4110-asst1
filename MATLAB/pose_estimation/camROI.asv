@@ -1,0 +1,25 @@
+function [ roix, roiy, roiz ] = camROI( x, y, z )
+    
+    
+    roiW = 50;
+    roiH = 50;
+
+    %it's a lot easier to extract the ROI and then discard bad points:
+    imgSize = [160 120];
+    badZ = -10;%the value z is set to for a bad point;
+    
+    x = reshape(x, imgSize);
+    y = reshape(y, imgSize);
+    z = reshape(z, imgSize);
+    
+    roi = zeros(imgSize(x));
+    roi( 0:roiH, (imgSize(roi, 2)/2 - roiw/2):(imgSize(roi, 2) + roiw/2))
+    
+    xroi = x(roi);
+    yroi = y(roi);
+    zroi = z(roi);
+    
+    
+
+end
+

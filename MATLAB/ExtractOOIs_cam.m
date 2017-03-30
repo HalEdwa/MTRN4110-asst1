@@ -1,5 +1,5 @@
 function r = ExtractOOIs_cam(X, Y)
-    filterSize = 0.02;
+    filterSize = 0.03;
     poleDia = 0.09;
     poleDiaTol = 0.3;
     
@@ -32,10 +32,10 @@ function r = ExtractOOIs_cam(X, Y)
     
           %for the moment, since we don't know what size the OOI is
           %leave the filtering based on size out
-%         objectSize = pdist([X(clusterEndPts(i)),  Y(clusterEndPts(i)); X(clusterEndPts(i+1)),  Y(clusterEndPts(i+1))]);
-%         if  (objectSize > (poleDia*(1 + poleDiaTol )))||( objectSize < (poleDia*(1 - poleDiaTol)))
-%             continue
-%         end
+        objectSize = pdist([X(clusterEndPts(i)),  Y(clusterEndPts(i)); X(clusterEndPts(i+1)),  Y(clusterEndPts(i+1))]);
+        if  (objectSize > (poleDia*(1 + poleDiaTol )))||( objectSize < (poleDia*(1 - poleDiaTol)))
+            continue
+        end
         
         r.N = r.N + 1;
         r.Centers.x = [r.Centers.x mean(X(clusterEndPts(i):clusterEndPts(i+1)))];
