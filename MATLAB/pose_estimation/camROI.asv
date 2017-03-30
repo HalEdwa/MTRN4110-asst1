@@ -12,14 +12,19 @@ function [ roix, roiy, roiz ] = camROI( x, y, z )
     y = reshape(y, imgSize);
     z = reshape(z, imgSize);
     
-    roi = zeros(imgSize(x));
-    roi( 0:roiH, (imgSize(roi, 2)/2 - roiw/2):(imgSize(roi, 2) + roiw/2))
+    roi = false(imgSize);
+    roi( 1:roiH, (size(roi, 2)/2 - roiW/2):(size(roi, 2)/2 + roiW/2)) = true;
     
-    xroi = x(roi);
-    yroi = y(roi);
-    zroi = z(roi);
+    x = x(roi);
+    y = y(roi);
+    y = z(roi);
     
+    roix = reshape(x, [1, numel(x)]);
+    roiy = reshape(y, [1, numel(y)]);
+    roiz = reshape(z, [1, numel(z)]);
     
-
+    roix = roix(z ~= badZ);
+    roiy = roiy(z ~= badZ);
+    roiz = roiz(z ~= badZ);
 end
 
