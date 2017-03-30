@@ -248,7 +248,7 @@ void send_all(int sock, const void *vbuf, size_t size_buf)
 // New depth sample event handler
 void onNewDepthSample(DepthNode node, DepthNode::NewSampleReceivedData data)
 {	
-	int16_t depthMapSampled[HEIGHT*WIDTH];
+	/*int16_t depthMapSampled[HEIGHT*WIDTH];
 	
 	int counter = 0;
 
@@ -258,26 +258,24 @@ void onNewDepthSample(DepthNode node, DepthNode::NewSampleReceivedData data)
 			depthMapSampled[counter] = data.depthMap[i*WIDTH*4 + j*2];
 			counter++;
 		}
-	}
-
-	/*
+	}*/
+	
 	//y u no work...crashes whenever you access data.vertices because it is completely empty
 	int16_t xyz[WIDTH*HEIGHT * 3];
-
+	
 	int counter = 0;
+	
 	for (int i = 0; i < HEIGHT; i++) {
 		for (int j = 0; j < WIDTH; j++) {
-			xyz[counter] = 2;// data.vertices[5000].x;
-			xyz[counter + HEIGHT*WIDTH] = 2; //data.vertices[5000].y;
-			xyz[counter + HEIGHT*WIDTH * 2] = 2; //data.vertices[5000].z;
+			xyz[counter] = data.vertices[i*WIDTH * 4 + j * 2].x;
+			xyz[counter + HEIGHT*WIDTH] = data.vertices[i*WIDTH * 4 + j * 2].y;
+			xyz[counter + HEIGHT*WIDTH * 2] = data.vertices[i*WIDTH * 4 + j * 2].z;
 			counter++;
-			//std::cout << counter << std::endl;
 		}
 	}
-	std::cout << "x: " << data.vertices[5000].x << " y: " << data.vertices[5000].y << " z: " << data.vertices[5000].z << std::endl;
-	*/
+	//std::cout << "x: " << data.vertices[5000].x << " y: " << data.vertices[5000].y << " z: " << data.vertices[5000].z << std::endl;
 
-	int freq = 10;
+	int freq = 5;
 	
 	auto currentTime = std::chrono::high_resolution_clock::now();
 	auto dur = currentTime - lastTime;
@@ -286,7 +284,8 @@ void onNewDepthSample(DepthNode node, DepthNode::NewSampleReceivedData data)
 	//std::cout << "Time Elapsed: " << ms << std::endl;
 
 	if ((currentTime - lastTime) > (std::chrono::milliseconds::duration(1000 / freq))) {
-		send_all(ClientSock, depthMapSampled, sizeof(int16_t)*HEIGHT*WIDTH);
+		//send_all(ClientSock, depthMapSampled, sizeof(int16_t)*HEIGHT*WIDTH);
+		send_all(ClientSock, xyz, sizeof(int16_t)*HEIGHT*WIDTH*3);
 		lastTime = currentTime;
 	}
 }
@@ -341,7 +340,7 @@ void configureDepthNode()
     config.saturation = true;
 
     //g_dnode.setEnableVertices(true);
-	g_dnode.setEnableDepthMap(true);
+	g_dnode.setEnableVertices(true);
 
     try 
     {
