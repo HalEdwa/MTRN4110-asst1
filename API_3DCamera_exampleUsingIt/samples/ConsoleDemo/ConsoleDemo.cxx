@@ -9,7 +9,7 @@
 // its principal place of business at Boulevard de la Plainelaan 11,
 // 1050 Brussels (Belgium), registered with the Crossroads bank for
 // enterprises under company number 0811 341 454 - "Softkinetic
-// Sensors").
+// Sensors")
 //
 // The source code of the SoftKinetic DepthSense Camera Drivers is
 // proprietary and confidential information of Softkinetic Sensors NV.
@@ -35,11 +35,8 @@
 #include <conio.h>
 #include <thread>
 #include <string>
-
 #include <io.h>
-
-
-
+#include <chrono>
 
 #define MY_MESSAGE_NOTIFICATION      1048 //Custom notification message
 HWND hwnd;
@@ -68,7 +65,8 @@ bool g_bDeviceFound = false;
 ProjectionHelper* g_pProjHelper = NULL;
 StereoCameraParameters g_scp;
 
-
+auto system_start = std::chrono::high_resolution_clock::now();
+auto lastTime = std::chrono::high_resolution_clock::now();
 
 void CloseConnection(SOCKET ks) {
 	if (ks) {
@@ -199,7 +197,6 @@ char* intarraytocharpointer(std::vector<int> values) {
 	return buffer;
 }
 
-
 /*----------------------------------------------------------------------------*/
 // New audio sample event handler
 void onNewAudioSample(AudioNode node, AudioNode::NewSampleReceivedData data)
@@ -250,78 +247,48 @@ void send_all(int sock, const void *vbuf, size_t size_buf)
 /*----------------------------------------------------------------------------*/
 // New depth sample event handler
 void onNewDepthSample(DepthNode node, DepthNode::NewSampleReceivedData data)
-{
-	//printf("DepthVerticiesSize#%u: %d\n", g_dFrames, data.vertices.size());
-	//printf("Z#%u: %d\n", g_dFrames, data.vertices);
-
-	// Project some 3D points in the Color Frame
-	if (!g_pProjHelper)
-	{
-		g_pProjHelper = new ProjectionHelper(data.stereoCameraParameters);
-		g_scp = data.stereoCameraParameters;
-	}
-	else if (g_scp != data.stereoCameraParameters)
-	{
-		g_pProjHelper->setStereoCameraParameters(data.stereoCameraParameters);
-		g_scp = data.stereoCameraParameters;
-	}
-
-	int32_t w, h;
-	FrameFormat_toResolution(data.captureConfiguration.frameFormat, &w, &h);
-	int cx = w / 2;
-	int cy = h / 2;
-
-	Vertex p3DPoints[4];
-
-	//p3DPoints[0] = data.vertices[(cy - h / 4)*w + cx - w / 4];
-	//p3DPoints[1] = data.vertices[(cy - h / 4)*w + cx + w / 4];
-	//p3DPoints[2] = data.vertices[(cy + h / 4)*w + cx + w / 4];
-	//p3DPoints[3] = data.vertices[(cy + h / 4)*w + cx - w / 4];	
-	
-	static int BufferCounter = 0;
-
+{	
 	int16_t depthMapSampled[HEIGHT*WIDTH];
 	
 	int counter = 0;
-	int samplePosition = HEIGHT*WIDTH;
-	/*
-	for (int i = 1; i < HEIGHT*WIDTH; i++) {
-		if (counter > WIDTH) {
-			samplePosition += WIDTH;
-			counter = 1;
+
+	//sub-sample image from 240*320 to 120*160
+	for (int i = 0; i < HEIGHT; i++) {
+		for (int j = 0; j < WIDTH; j++) {
+			depthMapSampled[counter] = data.depthMap[i*WIDTH*4 + j*2];
+			counter++;
 		}
-
-		depthMapSampled[i] = data.depthMap[samplePosition];
-		samplePosition++;
-		counter++;
-	}		*/
-
-	for (int i = 0; i < HEIGHT*WIDTH - 1; i++) {
-		depthMapSampled[i] = data.depthMap[counter];
-		counter += 2;
 	}
 
-	if (BufferCounter >= 5) {
-		BufferCounter = 0;
-		//send_all(ClientSock, data.depthMap, 76800 * sizeof(int16_t));
-		send_all(ClientSock, depthMapSampled, HEIGHT*WIDTH * sizeof(int16_t));
-		//send(ClientSock, (char*)&data.depthMap[38400], sizeof(uint16_t), 0);
-		//std::cout << data.depthMap[38400] << std::endl;
+	/*
+	//y u no work...crashes whenever you access data.vertices because it is completely empty
+	int16_t xyz[WIDTH*HEIGHT * 3];
+
+	int counter = 0;
+	for (int i = 0; i < HEIGHT; i++) {
+		for (int j = 0; j < WIDTH; j++) {
+			xyz[counter] = 2;// data.vertices[5000].x;
+			xyz[counter + HEIGHT*WIDTH] = 2; //data.vertices[5000].y;
+			xyz[counter + HEIGHT*WIDTH * 2] = 2; //data.vertices[5000].z;
+			counter++;
+			//std::cout << counter << std::endl;
+		}
 	}
-	//for (int i =110; i < 210; i++)
-	//std::cout << data.depthMap[i + 240 * 60] << " size: "<< data.depthMap.size() << sizeof(int16_t) << std::endl;
+	std::cout << "x: " << data.vertices[5000].x << " y: " << data.vertices[5000].y << " z: " << data.vertices[5000].z << std::endl;
+	*/
+
+	int freq = 10;
 	
-	BufferCounter++;
+	auto currentTime = std::chrono::high_resolution_clock::now();
+	auto dur = currentTime - lastTime;
 
-    Point2D p2DPoints[4];
-    g_pProjHelper->get2DCoordinates ( p3DPoints, p2DPoints, 4, CAMERA_PLANE_COLOR);
-   
-    g_dFrames++;
+	//auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(dur).count();
+	//std::cout << "Time Elapsed: " << ms << std::endl;
 
-    // Quit the main loop after 200 depth frames received
-	//if (g_dFrames == 200) {
-	//	g_context.quit();
-	//}
+	if ((currentTime - lastTime) > (std::chrono::milliseconds::duration(1000 / freq))) {
+		send_all(ClientSock, depthMapSampled, sizeof(int16_t)*HEIGHT*WIDTH);
+		lastTime = currentTime;
+	}
 }
 
 /*----------------------------------------------------------------------------*/

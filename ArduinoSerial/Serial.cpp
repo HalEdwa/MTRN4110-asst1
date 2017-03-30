@@ -1,6 +1,5 @@
 #include "Serial.h"
 
-
 Serial::Serial(const char *portName)
 {
 	//We're not yet connected
@@ -68,7 +67,6 @@ Serial::Serial(const char *portName)
 			}
 		}
 	}
-
 }
 
 Serial::~Serial()
@@ -118,9 +116,7 @@ int Serial::ReadData(char *buffer, unsigned int nbChar)
 
 	//If nothing has been read, or that an error was detected return 0
 	return 0;
-
 }
-
 
 bool Serial::WriteData(const char *buffer, unsigned int nbChar)
 {

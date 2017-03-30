@@ -13,7 +13,6 @@
 #pragma comment (lib, "Mswsock.lib")
 #pragma comment (lib, "AdvApi32.lib")
 
-
 #define DEFAULT_BUFLEN 512
 #define DEFAULT_PORT "27015"
 
@@ -29,8 +28,6 @@ int __cdecl main()
 	char recvbuf[DEFAULT_BUFLEN];
 	int iResult;
 	int recvbuflen = DEFAULT_BUFLEN;
-
-
 
 	// Initialize Winsock
 	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -95,7 +92,6 @@ int __cdecl main()
 		break;
 	}
 
-
 	freeaddrinfo(result);
 
 	if (ConnectSocketr == INVALID_SOCKET) {
@@ -110,28 +106,21 @@ int __cdecl main()
 		return 1;
 	}
 
-
-
-
-
 	bool fill = 0;
 
 	char sendbuf[3];
 	sendbuf[0] = '0';
 	sendbuf[1] = '1';
 	sendbuf[2] = 0;
+
 	// Receive until the peer closes the connection
 	do {
 		// Send an initial buffer
 
-
-
 		if (_kbhit()) {
 			sendbuf[fill] = _getch();
 			fill = !fill;
-
 		}
-
 
 		std::cout << "Speed(Hz): " << sendbuf << std::endl;
 
@@ -143,13 +132,11 @@ int __cdecl main()
 			return 1;
 		}
 
-
 		iResult = recv(ConnectSocketr, recvbuf, recvbuflen, 0);
 		if (iResult > 0) {
 			for (int i = 0; i < 20; i = i + 2) {
 				std::cout << static_cast<unsigned short int>(recvbuf[i]) << '\t';
 			}
-
 			std::cout << '\n';
 		}
 		else if (iResult == 0)
@@ -158,7 +145,6 @@ int __cdecl main()
 			printf("recv failed with error: %d\n", WSAGetLastError());
 			break;
 		}
-
 	} while (1);
 
 	// cleanup

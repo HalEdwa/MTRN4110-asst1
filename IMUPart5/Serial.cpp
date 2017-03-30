@@ -1,6 +1,5 @@
 #include "Serial.h"
 
-
 Serial::Serial(const char *portName)
 {
 	//We're not yet connected
@@ -23,7 +22,6 @@ Serial::Serial(const char *portName)
 
 			//Print Error if neccessary
 			printf("ERROR: Handle was not attached. Reason: %s not available.\n", portName);
-
 		}
 		else
 		{
@@ -68,7 +66,6 @@ Serial::Serial(const char *portName)
 			}
 		}
 	}
-
 }
 
 Serial::~Serial()

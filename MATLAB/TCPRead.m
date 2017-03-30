@@ -2,33 +2,36 @@ clear
 
 height = 120;%received image dimensions
 width = 160;
-Range = 31999;
 fovx = 74*pi/180;%horizontal field of view of the camera
 
 ip_address = '127.0.0.1';
 remote_port = 15000;
-Timer = 0;
 MaxTimeout = 1000; 
-colourRange = 255;
+Timer = 0;
 
-MinX = -1; MaxX = 1; MinDist = 0; MaxDist = 3;
+MinX = -0.5; MaxX = 0.5; MinDist = 0; MaxDist = 1;
 
 t = tcpip(ip_address,remote_port);%Initiate TCP connection
 t.ByteOrder = 'littleEndian';%Set Endian to convert
-set(t,'InputBufferSize', (2*240*320));%*width*height));
+set(t,'InputBufferSize', width*height*3*2);
 fopen(t);
 pause(1)
 
 figure(1);
-%DepthVisualisation = imshow(zeros(120,160), []);    %Depth visualisation in GrayScale
-DepthVisualisation = imshow(zeros(height,width),'Colormap',jet(colourRange)); %Depth visualisation in Colormap
+guiH.DepthVisualisation = imagesc();
+colorbar;
+caxis([0 1]);
+axis([0 160 0 120]);
 
-figure(2);
-DepthHorizon = imshow(zeros(1,width), 'Colormap', jet(colourRange));%center row of depthMap for now will be horizon
+figure(2); clf(); 
+guiH.Vertices = plot3(0,0,0,'.', 'MarkerSize', 2);
+axis([0 1 -1 1 -1 1]);
+xlabel('Z Depth'); ylabel('X Horizontal'); zlabel('Y Vertical');
+zoom on ; grid on;
 
 figure(3); clf(); hold on;
 guiH.DepthScan = plot(0,0,'b.');   %Depth map at horizon scatterplot handle
-guiH.OOI = plot(0,0,'r*');  %Object of interest marker overlay Handle
+guiH.Marker = plot(0,0,'g.','MarkerSize',20);  %Object of interest marker overlay Handle
 axis([MinX, MaxX, MinDist, MaxDist]);    %in meters
 
 while t.BytesAvailable == 0 %Wait for incoming bytes
@@ -43,36 +46,43 @@ while ((Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0))
         Timer = 0; %reset timer
     end
     
-    DataReceivedXYZ = fread(t,width*height,'uint16');  %Read one depthmap frame
+    Timer = Timer + 1;
     
-    counter = 1;
+    %buff = fread(t, height*width*3, 'int16');
+     
+    %x = buff(1:19200)
+    %y = buff(19201:38400)
+    %z = buff(38401:57600)
     
-    for i = 1 : height
-        for j = 1: width
-          DepthMap(i,j) = DataReceivedXYZ(counter); %Capture depth for respective pixel
-          counter = counter + 1;
-          
-          if i == height/2
-              yDist(j) = DataReceivedXYZ(counter);    %Capture depth at horizon row and column j
-          end
-        end
-    end
+    z = fread(t,width*height,'int16');  %Read one depthmap frame
     
-    yDist = yDist/1000;  %Convert from mm to m
-    yDist(yDist < 0) = -1;    %Negative depths to be disregarded
-    yDist(yDist > MaxDist) = -1;   %Value for depth too far away disregarded
+    temp = [-79:80]/80;
+    temp1 = [-59:60]/60;
+    x = repmat(temp', 120, 1);
+    y = repmat(temp1, 160, 1);
+    y = y(:);
     
+    z = z/1000;  %Convert from mm to m
+    z(z < 0) = -10;    %Negative depths to be disregarded
+    z(z > MaxDist) = -10;   %Value for depth too far away disregarded
+    
+    DepthMap = reshape(z,[160,120]);
+    %rotate image by 90 degree
+    DepthMap = DepthMap';
+    %flip image upside down
+    DepthMap = flipud(DepthMap);   
+    
+    zScan = (z((160*60 + 1):(160*61)))';
     %estimate world x-coordinates of pixels:
-    xDist = yDist*tan(fovx/2).*(-width/2 : (width - 1)/2)/width;%width - 1 for off-by one error
+    xScan = zScan*tan(fovx/2).*(-width/2 : (width - 1)/2)/width;;%width - 1 for off-by one error
     
-    DepthMap(DepthMap < 0) = 0; %Negative depths to be disregarded
-    OOIs = ExtractOOIs_cam(xDist, yDist);
-
+    OOIs = ExtractOOIs_cam(xScan, zScan);
+    
     %Display necessary plots
-    set(DepthVisualisation, 'CData', DepthMap/Range);   %divide by range to scale between 0-1 for colormpa
-    set(DepthHorizon, 'CData', yDist);
-    set(guiH.DepthScan, 'xdata', xDist, 'ydata', yDist);
-    PlotOOIs(OOIs, guiH.OOI);
+    set(guiH.DepthVisualisation, 'CData', DepthMap);
+    set(guiH.Vertices, 'xdata', z, 'ydata', x, 'zdata', y);
+    set(guiH.DepthScan, 'xdata', xScan, 'ydata', zScan);
+    PlotOOIs(OOIs, guiH.Marker);
     
     pause(0.01);    %~10ms delay
 end
