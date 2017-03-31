@@ -1,4 +1,4 @@
-function [ roix, roiy, roiz ] = camROI( x, y, z )
+function [ pcroi ] = camROI(pc)
     
     
     roiW = 50;
@@ -6,11 +6,11 @@ function [ roix, roiy, roiz ] = camROI( x, y, z )
 
     %it's a lot easier to extract the ROI and then discard bad points:
     imgSize = [160 120];
-    badZ = -10;%the value z is set to for a bad point;
+    badZ = -10;%the value z is set to this when it's bad
     
-    x = reshape(x, imgSize);
-    y = reshape(y, imgSize);
-    z = reshape(z, imgSize);
+    x = reshape(pc(1, :), imgSize);
+    y = reshape(pc(2, :), imgSize);
+    z = reshape(pc(3, :), imgSize);
     
     roi = false(imgSize);
     roi( 1:roiH, (size(roi, 2)/2 - roiW/2):(size(roi, 2)/2 + roiW/2)) = true;
@@ -26,5 +26,10 @@ function [ roix, roiy, roiz ] = camROI( x, y, z )
     roix = roix(roiz ~= badZ);
     roiy = roiy(roiz ~= badZ);
     roiz = roiz(roiz ~= badZ);
+%     figure(3);clf();
+%     xlabel('x'); ylabel('y'); zlabel('z');
+%     hold on; axis equal; grid on;
+%     scatter3(roix, roiy, roiz, 'g.');
+    pcroi = [roix; roiy; roiz];
 end
 
