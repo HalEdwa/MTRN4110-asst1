@@ -30,8 +30,8 @@ void loop() {
   AccY++;
   AccZ++;
   GyrX++;
-  GyrY++;
-  GyrZ++;
+  GyrY+=2;
+  GyrZ+=3;
   //Send Framing char
   Serial.print('A');
   //Send AccX
