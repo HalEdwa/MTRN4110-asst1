@@ -5,7 +5,7 @@ function r = ExtractOOIs_cam(X, Y)
     poleDiaTol = 0.3;
 =======
 function OOI = ExtractOOIs_cam(x, z)
-    DataLength = size(x);
+    DataLength = size(x); 
     startPoint = 1;
     endPoint = 1;
 >>>>>>> refs/remotes/origin/master
