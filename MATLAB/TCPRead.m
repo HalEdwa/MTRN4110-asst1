@@ -1,5 +1,5 @@
 clear
-
+ 
 height = 120;%received image dimensions
 width = 160;
 

@@ -1,5 +1,5 @@
 function OOI = ExtractOOIs_cam(x, z)
-    DataLength = size(x);
+    DataLength = size(x); 
     startPoint = 1;
     endPoint = 1;
     
