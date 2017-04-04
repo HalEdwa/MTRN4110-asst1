@@ -2,7 +2,7 @@ function [ pcroi ] = camROI(pc)
     
     
     roiW = 50;
-    roiH = 50;
+    roiH = 20;
 
     %it's a lot easier to extract the ROI and then discard bad points:
     imgSize = [160 120];
@@ -12,8 +12,9 @@ function [ pcroi ] = camROI(pc)
     y = reshape(pc(2, :), imgSize);
     z = reshape(pc(3, :), imgSize);
     
+    yO = 30;
     roi = false(imgSize);
-    roi( 1:roiH, (size(roi, 2)/2 - roiW/2):(size(roi, 2)/2 + roiW/2)) = true;
+    roi(  (size(roi, 1)/2 - roiW/2):(size(roi, 2)/2 + roiW/2), (end - roiH-yO):(end-yO)) = true;
     
     x = x(roi);
     y = y(roi);

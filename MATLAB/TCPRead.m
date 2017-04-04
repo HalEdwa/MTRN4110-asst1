@@ -79,13 +79,13 @@ while ((Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0))
     xScan = x(y==0);
     zScan = z(y==0);
     
-    OOIs = ExtractOOIs_cam(xScan, zScan);
+%     OOIs = ExtractOOIs_cam(xScan, zScan);
     
     %Display necessary plots
     set(guiH.DepthVisualisation, 'CData', DepthMap);
     set(guiH.Vertices, 'xdata', z, 'ydata', x, 'zdata', y);
     set(guiH.DepthScan, 'xdata', xScan, 'ydata', zScan);
-    PlotOOIs(OOIs, guiH.Marker);
+%     PlotOOIs(OOIs, guiH.Marker);
     
     pause(0.01);    %~10ms delay
 end

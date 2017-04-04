@@ -7,7 +7,7 @@ function [cTran] = cloudTransform(c, n)
     roll = asin( -n(2) / cos(pitch));
     yaw = 0;%can't be calculated from a plane
 
-    rx = roll;
+    rx = roll + pi/2;
     ry = pitch;
     rz = yaw;
     
