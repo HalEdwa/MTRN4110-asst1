@@ -1,36 +1,25 @@
 function [ pcroi ] = camROI(pc)
     
+    x = pc(1, :);%converting to xs and ys could be avoided if there 
+                %was a way to return a subset of a matrix as a matrix
+                %not a vector
+    y = pc(2, :);
+    z = pc(3, :);
     
-    roiW = 50;
-    roiH = 20;
-
-    %it's a lot easier to extract the ROI and then discard bad points:
-    imgSize = [160 120];
-    badZ = -10;%the value z is set to this when it's bad
+    roixSize = 0.1;%m
+    roizSize = 0.1;
+    zOffset = 0.1;
+    badZ = -10;
     
-    x = reshape(pc(1, :), imgSize);
-    y = reshape(pc(2, :), imgSize);
-    z = reshape(pc(3, :), imgSize);
+    xCriteria = false(1, numel(pc(1, :)));
+    zCriteria = xCriteria;
+    minZ = min(z(z ~= badZ));
     
-    yO = 30;
-    roi = false(imgSize);
-    roi(  (size(roi, 1)/2 - roiW/2):(size(roi, 2)/2 + roiW/2), (end - roiH-yO):(end-yO)) = true;
+    xCriteria = x > -roixSize & x < roixSize;
+    zCriteria = z > (minZ + zOffset) & z < (minZ + zOffset + roizSize) & z ~= badZ;
     
-    x = x(roi);
-    y = y(roi);
-    z = z(roi);
+    roi = xCriteria & zCriteria;
     
-    roix = reshape(x, [1, numel(x)]);
-    roiy = reshape(y, [1, numel(y)]);
-    roiz = reshape(z, [1, numel(z)]);
-    
-    roix = roix(roiz ~= badZ);
-    roiy = roiy(roiz ~= badZ);
-    roiz = roiz(roiz ~= badZ);
-%     figure(3);clf();
-%     xlabel('x'); ylabel('y'); zlabel('z');
-%     hold on; axis equal; grid on;
-%     scatter3(roix, roiy, roiz, 'g.');
-    pcroi = [roix; roiy; roiz];
+    pcroi = [x(roi); y(roi); z(roi)];
 end
 

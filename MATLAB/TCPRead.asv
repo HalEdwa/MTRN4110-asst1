@@ -24,14 +24,14 @@ colorbar;
 caxis([0 1]);
 axis([0 160 0 120]);
 
-figure(2); hold on;zoom on ; grid on; axis equal;
+figure(2); hold on;
 guiH.Vertices = plot3(0,0,0,'.');
-guiH.roi = scatter3(0, 0, 0, 'g');
+guiH.roi = scatter
 guiH.normalLine = plot3(0, 0, 0, 'r');
-xlabel('x'); ylabel('y'); zlabel('z');
+axis([0 1 -0.4 0.4 -0.4 0.4]);
+xlabel('Z Depth'); ylabel('X Horizontal'); zlabel('Y Vertical');
 title('untransformed point cloud data');
-view(90, 0);
-
+zoom on ; grid on;
 
 figure(3); hold on;
 guiH.DepthScan = plot(0,0,'b.');   %Depth map at horizon scatterplot handle
@@ -39,10 +39,9 @@ guiH.Marker = plot(0,0,'g.','MarkerSize',20);  %Object of interest marker overla
 axis([-0.4 0.4 0 1]);    %in meters
 title('scan of middle row');
 
-figure(4); hold on; axis equal; zoom on;grid on;
+figure(4); hold on; axis equal;
 guiH.pct = scatter3(0, 0, 0, 'b.');
-guiH.roit = scatter3(0, 0, 0, 'g');
-xlabel('x'); ylabel('y'); zlabel('z');
+guiH.roit = scatter3(0, 0, 0, 'g.');
 title('transformed pts');
 view(90, 0);
 
@@ -73,17 +72,13 @@ while ((Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0))
     z(z < 0) = -10;    %Negative depths to be disregarded
     z(z > MaxDist) = -10;   %Value for depth too far away disregarded
     
-    %plot depthmap before bad points are removed
     DepthMap = reshape(z,[160,120]);
     %flip image upside down and rotate 90 deg
     DepthMap = flipud(DepthMap');   
-    set(guiH.DepthVisualisation, 'CData', DepthMap);
-
-    x = x(z ~= -10);
-    y = y(z ~= -10);
-    z = z(z ~= -10);
     
-    set(guiH.Vertices, 'xdata', x, 'ydata', y, 'zdata', z);
+        %Display necessary plots
+    set(guiH.DepthVisualisation, 'CData', DepthMap);
+    set(guiH.Vertices, 'xdata', z, 'ydata', x, 'zdata', y);
     xScan = x(y==0);
     zScan = z(y==0);
     set(guiH.DepthScan, 'xdata', xScan, 'ydata', zScan);
@@ -93,7 +88,6 @@ while ((Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0))
     
     pc = [x'; y'; z'];
     roi = camROI(pc);
-    set(guiH.roi, 'xdata', roi(1, :), 'ydata', roi(2, :), 'zdata', roi(3, :));
     if numel(roi) < 10*3
         pause(0.01);
         disp('not enough pts');
@@ -102,6 +96,10 @@ while ((Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0))
     [~, n, ~] = getOrientation(roi);
     pct = cloudTransform(pc, n);
     roit = cloudTransform(roi, n);
+
+%     remove pts for plotting
+    pct = pct(repmat(pct(3, :) > -1, 3, 1));%not always exactly -10
+    pct = reshape(pct, 3, numel(pct)/3);
 
     x = x(z ~= -10);
     y = y(z ~= -10);

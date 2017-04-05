@@ -1,6 +1,6 @@
 function [point, normal, fitresult] = getOrientation(c)
 %% usage: getOrientation([xData; yData; zData])
-
+    
     %pretty sure this just turns the x, y and z data into 3 vectors instead
     %of matrices
     [fitresult, ~] = fit( [c(1, :)', c(2, :)'], c(3, :)', 'poly11');
@@ -17,6 +17,12 @@ function [point, normal, fitresult] = getOrientation(c)
     %now fit the data back, should be more or less the same as
     %the previos p and n: (the direction of n, not the magnitude)
     normal = [a b -c];
+    
+    if normal(2) < 0
+        %the fit thinks we are not upside down.
+        %If we are upside down, there are bigger things to worry about
+        normal = -normal;
+    end
 
     %% finding the planept is currently not working as it assupes p is a matrix, not a vector
     point = [0 0 0];
