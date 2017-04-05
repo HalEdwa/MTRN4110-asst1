@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <iostream>
+#include <chrono>
 
 // Need to link with Ws2_32.lib
 #pragma comment (lib, "Ws2_32.lib")
@@ -15,6 +16,9 @@
 
 #define DEFAULT_BUFLEN 3
 #define DEFAULT_PORT "27015"
+
+auto system_start = std::chrono::high_resolution_clock::now();
+auto lastTime = std::chrono::high_resolution_clock::now();
 
 int __cdecl main(void)
 {
@@ -100,7 +104,6 @@ int __cdecl main(void)
 		return 1;
 	}
 
-
 	// Receive until the peer shuts down the connection
 	int freq = 25;
 	unsigned short int measurements[10] = { 0 };
@@ -111,32 +114,36 @@ int __cdecl main(void)
 	recvbuf[2] = 0;
 
 	do {
-		recv(ClientSocketr, recvbuf, DEFAULT_BUFLEN, 0);
+		auto currentTime = std::chrono::high_resolution_clock::now();
+		auto dur = currentTime - lastTime;
 
-		std::cout << "Speed(Hz): " << recvbuf << std::endl;
+		//auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(dur).count();
+		//std::cout << "Time Elapsed: " << ms << std::endl;
 
-		sscanf_s(recvbuf, "%d", &freq);
+		if ((currentTime - lastTime) > (std::chrono::milliseconds::duration(1000 / freq))) {
+			lastTime = currentTime;
 
-		if (freq == 0) break;
+			recv(ClientSocketr, recvbuf, DEFAULT_BUFLEN, 0);
 
-		if (freq > 50) freq = 50;
+			std::cout << "Speed(Hz): " << recvbuf << std::endl;
+			sscanf_s(recvbuf, "%d", &freq);
 
-		Sleep(1000 / freq);
+			if (freq == 0) break;
+			if (freq > 50) freq = 50;
 
-		if (measurements[0] == 0 || measurements[0] == 200) state = !state;
+			if (measurements[0] == 0 || measurements[0] == 200) state = !state;
 
-		for (int i = 0; i < 10; i++) {
-			if (state) measurements[i]--;
-			else measurements[i]++;
+			for (int i = 0; i < 10; i++) {
+				if (state) measurements[i]--;
+				else measurements[i]++;
 
-			std::cout << measurements[i] << '\t';
+				std::cout << measurements[i] << '\t';
+			}
+
+			std::cout << '\n';
+
+			send(ClientSockets, (char *)&measurements, 20, 0);
 		}
-
-		std::cout << '\n';
-
-		send(ClientSockets, (char *)&measurements, 20, 0);
-
-
 	} while (1);
 	closesocket(ListenSocket);
 	// shutdown the connection since we're done
