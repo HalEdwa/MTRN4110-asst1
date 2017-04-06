@@ -7,20 +7,17 @@
 #include "Serial.h"
 #include <chrono>
 
-#define MY_MESSAGE_NOTIFICATION      1048 //Custom notification message
+#define MY_MESSAGE_NOTIFICATION 1048 //Custom notification message
+#define BUFFERSIZE 47
 
 HWND hwnd;
 SOCKET ss; //Server
 SOCKET ClientSock; //Client ID on Server Side
 
-#define DEFAULT_BUFLEN 512
-#define BUFFERSIZE 26
-
-char recvbuf[DEFAULT_BUFLEN];
-int recvbuflen = DEFAULT_BUFLEN;
-
 auto system_start = std::chrono::high_resolution_clock::now();
 auto lastTime = std::chrono::high_resolution_clock::now();
+auto currentTime = std::chrono::high_resolution_clock::now();
+auto dur = currentTime - lastTime;
 
 void CloseConnection(SOCKET ks) {
 	if (ks) {
@@ -103,7 +100,7 @@ int main() {
 	
 	std::cout << "Press any key to start the Server:" << std::endl;
 	if (_getch()) {
-		if (ListenOnPort(15000) != 0) { //CHOSE THE SERVER PORT HERE!
+		if (ListenOnPort(15000) != 0) { 
 			std::cout << "listen on port failed" << std::endl;
 		}
 		else {
@@ -119,28 +116,32 @@ int main() {
 		std::cout << "Bad Socket" << std::endl;
 	}
 	
-	char incomingData[BUFFERSIZE] = "000000000000000000000000";
+	char incomingData[BUFFERSIZE] = "0000000000000000000000000000000000000000000000";
 
 	while (1) {
-		int freq = 50;
-		auto currentTime = std::chrono::high_resolution_clock::now();
-		auto dur = currentTime - lastTime;
+		int freq = 20;
+		int counter = 0;
+		currentTime = std::chrono::high_resolution_clock::now();
+		dur = currentTime - lastTime;
 
 		//auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(dur).count();
 		//std::cout << "Time Elapsed: " << ms << std::endl;
 
+		// Check time elapsed
 		if ((currentTime - lastTime) > (std::chrono::milliseconds::duration(1000 / freq))) {
 			lastTime = currentTime;
 			SR.ReadData(incomingData, BUFFERSIZE - 1);
-			while (incomingData[0] != 'A') {
+			while (incomingData[0] != 'A' && counter < BUFFERSIZE) {
 				//char shift 
 				char holder = incomingData[0];
 				for (int i = 0; i < BUFFERSIZE - 2; i++) {
 					incomingData[i] = incomingData[i + 1];
 				}
 				incomingData[BUFFERSIZE - 2] = holder;
+				counter++;
 			}
 
+			// Send data over TCP
 			send(ClientSock, incomingData, BUFFERSIZE - 1, 0);
 			std::cout << incomingData << std::endl;
 		}
