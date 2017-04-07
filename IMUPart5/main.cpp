@@ -8,7 +8,7 @@
 #include <chrono>
 
 #define MY_MESSAGE_NOTIFICATION 1048 //Custom notification message
-#define BUFFERSIZE 47
+#define BUFFERSIZE 17
 
 HWND hwnd;
 SOCKET ss; //Server
@@ -89,12 +89,61 @@ void acceptThread() {
 	ClientSock = accept(ss, NULL, NULL);
 }
 
+void synchronise(Serial sr) {
+	char* read_data = new char[BUFFERSIZE];
+	
+	std::cout << "Need to Synchronise. Searching for 'HD'" << std::endl;
+	bool synchronised = FALSE;
+	
+	while (!synchronised) {
+		sr.ReadData(read_data, 16);
+		
+		/*
+		while (read_data[0] != 'H') {	// Search for H
+			sr.ReadData(&read_data[0], 1);
+			std::cout << "Search H: " << (int*)read_data << std::endl;
+		}
+
+		sr.ReadData(&read_data[0], 1);
+		std::cout << "Search D: " << (int*)read_data << std::endl;
+		std::cout << '\n' << '\n' << std::endl;
+
+		if (read_data[1] == 'D') {
+			synchronised = TRUE;
+		}
+		*/
+		std::cout << "Start thang" << std::endl;
+		int val = ((read_data[0] & 0xff) << 8) | (read_data[1] & 0xff);
+		std::cout << val << std::endl;
+		val = ((read_data[2] & 0xff) << 8) | (read_data[3] & 0xff);
+		std::cout << val << std::endl;
+		val = ((read_data[4] & 0xff) << 8) | (read_data[5] & 0xff);
+		std::cout << val << std::endl;
+		val = ((read_data[6] & 0xff) << 8) | (read_data[7] & 0xff);
+		std::cout << val << std::endl;
+		val = ((read_data[8] & 0xff) << 8) | (read_data[9] & 0xff);
+		std::cout << val << std::endl;
+		val = ((read_data[10] & 0xff) << 8) | (read_data[11] & 0xff);
+		std::cout << val << std::endl;
+		val = ((read_data[12] & 0xff) << 8) | (read_data[13] & 0xff);
+		std::cout << val << std::endl;
+		val = ((read_data[14] & 0xff) << 8) | (read_data[15] & 0xff);
+		std::cout << val << '\n' << std::endl;
+		Sleep(100);
+	}
+
+	std::cout << '\n' << "Found 'HD'. Offsetting" << std::endl;
+	sr.ReadData(&read_data[0], BUFFERSIZE - 3);
+	std::cout << "Synchronised Buffer: " << read_data << std::endl;
+}
+
 int main() {
 
-	Serial SR("\\\\.\\COM7");
+	Serial SR("\\\\.\\COM6");
+
 	if (SR.IsConnected() == 0) {
 		std::cout << "Did not Connect Serial" << std::endl;
-		Sleep(3000);
+		Sleep(2000);
 		return 1;
 	}
 	
@@ -116,10 +165,12 @@ int main() {
 		std::cout << "Bad Socket" << std::endl;
 	}
 	
-	char incomingData[BUFFERSIZE] = "0000000000000000000000000000000000000000000000";
+	char* incomingData = new char[BUFFERSIZE];
+
+	synchronise(SR);
 
 	while (1) {
-		int freq = 20;
+		int freq = 2;
 		int counter = 0;
 		currentTime = std::chrono::high_resolution_clock::now();
 		dur = currentTime - lastTime;
@@ -131,20 +182,15 @@ int main() {
 		if ((currentTime - lastTime) > (std::chrono::milliseconds::duration(1000 / freq))) {
 			lastTime = currentTime;
 			SR.ReadData(incomingData, BUFFERSIZE - 1);
-			
-			while (incomingData[0] != 'A' && counter < BUFFERSIZE) {
-				//char shift 
-				char holder = incomingData[0];
-				for (int i = 0; i < BUFFERSIZE - 2; i++) {
-					incomingData[i] = incomingData[i + 1];
-				}
-				incomingData[BUFFERSIZE - 2] = holder;
-				counter++;
-			}
 
-			// Send data over TCP
-			send(ClientSock, incomingData, BUFFERSIZE - 1, 0);
-			std::cout << incomingData << std::endl;
+			if (incomingData[0] == 72 && incomingData[1] == 68) {	//search for H
+				// Send data over TCP
+				send(ClientSock, incomingData, BUFFERSIZE - 1, 0);
+				std::cout << incomingData << std::endl;
+			}
+			else {
+				synchronise(SR);
+			}
 		}
 	}
 

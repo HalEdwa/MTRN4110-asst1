@@ -1,9 +1,9 @@
 function main()
-    % Create TCP/IP object 't'. Specify server machine and port number. 
-    t = tcpip('127.0.0.1', 15000); 
+    % Create TCP/IP object 't'. Specify server machine and port number.
+    t = tcpip('127.0.0.1', 15000);
 
-    % Set size of receiving buffer, if needed. 
-    set(t, 'InputBufferSize', 46);
+    % Set size of receiving buffer, if needed.
+    set(t, 'InputBufferSize', 16);
     
     % Open connection to the server. 
     fopen(t);   pause(1); 
@@ -146,7 +146,7 @@ function NewAttitude = ProcessAttitude_Gyros(gyros, dt, CurrentAttitude)
         NewAttitude = [roll, pitch, yaw]; %new global Roll, Pitch, Yaw (at time t+dt)
     else
         NewAttitude = CurrentAttitude;
-        fprintf("Gyro Fucked\n");
+        %fprintf("Gyro Fucked\n");
     end
 end
 
@@ -162,7 +162,7 @@ function NewAttitude = ProcessAttitude_Accel(accel, CurrentAttitude)
         NewAttitude = [roll, pitch]; %new global Roll, Pitch (at time t+dt)
     else
         NewAttitude = CurrentAttitude;
-        fprintf("Accel fucked\n");
+        %fprintf("Accel fucked\n");
     end
 end
 
@@ -203,36 +203,36 @@ function imuRaw = Parse_IMU_Serial(t)
     convert_a = aRange/2^(aResolution-1);
     convert_g = gScale*pi/180;
     
-    DataReceived = fscanf(t);
+    DataReceived = fscanf(t)
     
     %Save accelerometer values in m/s^2
-    tmp = find(DataReceived(2:7) ~= '0',1);
-    imuRaw.Ax = str2double(DataReceived(tmp + 1:7));
-    imuRaw.Ax = imuRaw.Ax * convert_a;
-    
-    tmp = find(DataReceived(8:13) ~= '0',1);
-    imuRaw.Ay = str2double(DataReceived(tmp + 7:13));
-    imuRaw.y = imuRaw.Ay * convert_a;
-    
-    tmp = find(DataReceived(14:19) ~= '0',1);
-    imuRaw.Az = str2double(DataReceived(tmp + 13:19));
-    imuRaw.Az = imuRaw.Az * convert_a;
-    
-    %Save gyroscope data in rads/sec
-    tmp = find(DataReceived(20:25) ~= '0',1);
-    imuRaw.Gx = str2double(DataReceived(tmp + 19:25));
-    imuRaw.Gx = imuRaw.Gx * convert_g; 
-    
-    tmp = find(DataReceived(26:31) ~= '0',1);
-    imuRaw.Gy = str2double(DataReceived(tmp + 25:31));
-    imuRaw.Gy = imuRaw.Gy * convert_g;
-    
-    tmp = find(DataReceived(32:37) ~= '0',1);
-    imuRaw.Gz = str2double(DataReceived(tmp + 31:37));
-    imuRaw.Gz = imuRaw.Gz * convert_g;
-    
-    tmp = find(DataReceived(38:46) ~= '0',1);
-    imuRaw.TimeStamp = str2double(DataReceived(tmp + 37:46));
+%     tmp = find(DataReceived(2:7) ~= '0',1);
+%     imuRaw.Ax = str2double(DataReceived(tmp + 1:7));
+%     imuRaw.Ax = imuRaw.Ax * convert_a;
+%     
+%     tmp = find(DataReceived(8:13) ~= '0',1);
+%     imuRaw.Ay = str2double(DataReceived(tmp + 7:13));
+%     imuRaw.y = imuRaw.Ay * convert_a;
+%     
+%     tmp = find(DataReceived(14:19) ~= '0',1);
+%     imuRaw.Az = str2double(DataReceived(tmp + 13:19));
+%     imuRaw.Az = imuRaw.Az * convert_a;
+%     
+%     %Save gyroscope data in rads/sec
+%     tmp = find(DataReceived(20:25) ~= '0',1);
+%     imuRaw.Gx = str2double(DataReceived(tmp + 19:25));
+%     imuRaw.Gx = imuRaw.Gx * convert_g; 
+%     
+%     tmp = find(DataReceived(26:31) ~= '0',1);
+%     imuRaw.Gy = str2double(DataReceived(tmp + 25:31));
+%     imuRaw.Gy = imuRaw.Gy * convert_g;
+%     
+%     tmp = find(DataReceived(32:37) ~= '0',1);
+%     imuRaw.Gz = str2double(DataReceived(tmp + 31:37));
+%     imuRaw.Gz = imuRaw.Gz * convert_g;
+%     
+%     tmp = find(DataReceived(38:46) ~= '0',1);
+%     imuRaw.TimeStamp = str2double(DataReceived(tmp + 37:46));
     
     return;
 end
