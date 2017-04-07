@@ -91,7 +91,7 @@ void acceptThread() {
 
 int main() {
 
-	Serial SR("\\\\.\\COM6");
+	Serial SR("\\\\.\\COM7");
 	if (SR.IsConnected() == 0) {
 		std::cout << "Did not Connect Serial" << std::endl;
 		Sleep(3000);
@@ -131,6 +131,7 @@ int main() {
 		if ((currentTime - lastTime) > (std::chrono::milliseconds::duration(1000 / freq))) {
 			lastTime = currentTime;
 			SR.ReadData(incomingData, BUFFERSIZE - 1);
+			
 			while (incomingData[0] != 'A' && counter < BUFFERSIZE) {
 				//char shift 
 				char holder = incomingData[0];
