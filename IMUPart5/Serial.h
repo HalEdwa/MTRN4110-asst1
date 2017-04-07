@@ -1,39 +1,41 @@
-#pragma once
+// Serial.h
 
-#define ARDUINO_WAIT_TIME 2000
+#ifndef __SERIAL_H__
+#define __SERIAL_H__
 
-#include <windows.h>
-#include <stdio.h>
-#include <stdlib.h>
+#define FC_DTRDSR       0x01
+#define FC_RTSCTS       0x02
+#define FC_XONXOFF      0x04
+#define ASCII_BEL       0x07
+#define ASCII_BS        0x08
+#define ASCII_LF        0x0A
+#define ASCII_CR        0x0D
+#define ASCII_XON       0x11
+#define ASCII_XOFF      0x13
 
-
-class Serial {
-private:
-	//Serial comm handler
-	HANDLE hSerial;
-	//Connection status
-	bool connected;
-	//Get various information about the connection
-	COMSTAT status;
-	//Keep track of last error
-	DWORD errors;
+class CSerial
+{
 
 public:
-	//Initialize Serial communication with the given COM port
-	Serial(const char *portName);
-	//Close the connection
-	~Serial();
-	//Read data in a buffer, if nbChar is greater than the
-	//maximum number of bytes available, it will return only the
-	//bytes available. The function return -1 when nothing could
-	//be read, the number of bytes actually read.
-	int ReadData(char *buffer, unsigned int nbChar);
-	//Writes data from a buffer through the Serial connection
-	//return true on success.
-	bool WriteData(const char *buffer, unsigned int nbChar);
-	//Check if we are actually connected
-	bool IsConnected();
+	CSerial();
+	~CSerial();
 
+	BOOL Open( int nPort = 2, int nBaud = 9600 );
+	BOOL Close( void );
 
-	
+	int ReadData( void *, int );
+	int SendData( const char *, int );
+	int ReadDataWaiting( void );
+
+	BOOL IsOpened( void ){ return( m_bOpened ); }
+
+protected:
+	BOOL WriteCommByte( unsigned char );
+
+	HANDLE m_hIDComDev;
+	OVERLAPPED m_OverlappedRead, m_OverlappedWrite;
+	BOOL m_bOpened;
+
 };
+
+#endif
