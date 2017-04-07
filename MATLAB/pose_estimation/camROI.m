@@ -6,19 +6,19 @@ function [ pcroi ] = camROI(pc)
     y = pc(2, :);
     z = pc(3, :);
     
-    roixSize = 0.1;%m
-    roizSize = 0.1;
-    zOffset = 0.1;
-    badZ = -10;
+    roiySize = 0.1;%m
+    roixSize = 0.1;
+    xOffset = 0.1;
+    badX = -10;
     
-    xCriteria = false(1, numel(pc(1, :)));
-    zCriteria = xCriteria;
-    minZ = min(z(z ~= badZ));
+    yCriteria = false(1, numel(pc(1, :)));
+    xCriteria = yCriteria;
+    minX = min(x(x ~= badX));
     
-    xCriteria = x > -roixSize & x < roixSize;
-    zCriteria = z > (minZ + zOffset) & z < (minZ + zOffset + roizSize) & z ~= badZ;
+    yCriteria = y > -roiySize & y < roiySize;
+    xCriteria = x > (minX + xOffset) & x < (minX + xOffset + roixSize) & x ~= badX;
     
-    roi = xCriteria & zCriteria;
+    roi = yCriteria & xCriteria;
     
     pcroi = [x(roi); y(roi); z(roi)];
 end

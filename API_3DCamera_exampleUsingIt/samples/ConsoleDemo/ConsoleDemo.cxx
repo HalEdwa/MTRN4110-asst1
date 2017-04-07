@@ -437,8 +437,8 @@ void configureNode(Node node)
         g_dnode = node.as<DepthNode>();
         configureDepthNode();
         g_context.registerNode(node);
-		g_dnode.setEnableFilter1(true);
-		g_dnode.setEnableFilter9(true);
+		//g_dnode.setEnableFilter1(true);
+		//g_dnode.setEnableFilter9(true);
     }
 
     if ((node.is<ColorNode>())&&(!g_cnode.isSet()))
