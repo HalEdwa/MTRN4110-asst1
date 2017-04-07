@@ -10,6 +10,7 @@ function [ pcroi ] = camROI(pc)
     roixSize = 0.1;
     xOffset = 0.1;
     badX = -10;
+    floorNoise = 0.1;
     
     yCriteria = false(1, numel(pc(1, :)));
     xCriteria = yCriteria;
@@ -17,8 +18,8 @@ function [ pcroi ] = camROI(pc)
     
     yCriteria = y > -roiySize & y < roiySize;
     xCriteria = x > (minX + xOffset) & x < (minX + xOffset + roixSize) & x ~= badX;
-    
-    roi = yCriteria & xCriteria;
+    zCriteria = z < (min(z) + floorNoise);
+    roi = yCriteria & xCriteria & zCriteria;
     
     pcroi = [x(roi); y(roi); z(roi)];
 end
