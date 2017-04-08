@@ -24,7 +24,9 @@ close all;
 % caxis([0 1]);
 % axis([0 160 0 120]);
 
-figure(2); hold on;zoom on ; grid on; axis equal;
+% figure(2); 
+subplot(1, 2, 1)
+hold on;zoom on ; grid on; axis equal;
 guiH.Vertices = plot3(0,0,0,'.');
 guiH.roi = scatter3(0, 0, 0, 'g');
 guiH.normalLine = plot3(0, 0, 0, 'r');
@@ -33,13 +35,9 @@ title('untransformed point cloud data');
 axis([0 1 -0.7 0.7 -0.7 0.7]);
 view(225, 15);
 
-
-figure(3); hold on;
-guiH.DepthScan = plot(0,0,'b.');   %Depth map at horizon scatterplot handle
-guiH.Marker = plot(0,0,'g.','MarkerSize',20);  %Object of interest marker overlay Handle
-title('scan of middle row');
-
-figure(4); hold on; axis equal; zoom on;grid on;
+% figure(4); 
+subplot(1, 2, 2)
+hold on; axis equal; zoom on;grid on;
 guiH.pct = scatter3(0, 0, 0, 'b.');
 guiH.roit = scatter3(0, 0, 0, 'g');
 guiH.scanLine = scatter3(0, 0, 0, 'r');
@@ -47,8 +45,16 @@ xlabel('x'); ylabel('y'); zlabel('z');
 title('transformed pts');
 view(90, 0);
 
-rosbagXYZ = repmat(struct('x', [], 'y', [], 'z', []),1,150);
-rosbagFrame = 0;
+figure(3); hold on;
+guiH.DepthScan = plot(0,0,25,[0 0 0]);   %Depth map at horizon scatterplot handle
+guiH.Marker = scatter(0,0,50, [0 0 0]);  %Object of interest marker overlay Handle
+axis([0 1 -0.5 0.5]);
+title('scan of middle row');
+
+
+
+recordedData = zeros(3, 19200, 200);
+idx = 1;
 
 while t.BytesAvailable == 0 %Wait for incoming bytes
     pause(1)
@@ -64,11 +70,19 @@ while ((Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0))
     
     buff = fread(t, height*width*3, 'int16');
     Timer = Timer + 1;
-    rosbagFrame = rosbagFrame + 1;
     
     y = buff(1:19200);%Y X Z
     z = buff(19201:38400);
     x = buff(38401:57600);
+    
+    
+    recordedData(1, :, idx) = x;
+    recordedData(2, :, idx) = y;
+    recordedData(3, :, idx) = z;
+    idx = idx + 1;
+    if idx == length(recordedData(1, 1, :))
+        break;
+    end
     
     x = x/1000; y = y/1000; z = z/1000;  %Convert from mm to m
     x(x < 0) = -10;    %Negative depths to be disregarded
@@ -99,13 +113,12 @@ while ((Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0))
     sl = getScanLine(pct, 0.005);
 
     % plotting and transformation of live camera data:
-    
     set(guiH.Vertices, 'xdata', x, 'ydata', y, 'zdata', z);
     xScan = x(y==0);
     zScan = z(y==0);
-    set(guiH.DepthScan, 'xdata', sl(1, :), 'ydata', sl(2, :));
-%     PlotOOIs(OOIs, guiH.Marker);
-
+%     set(guiH.DepthScan, 'xdata', sl(1, :), 'ydata', sl(2, :));
+    OOIs = ExtractOOIs_cam(sl(1, :), sl(2, :), guiH.Marker);
+    
 
     set(guiH.scanLine, 'xdata', sl(1, :), 'ydata', sl(2, :), 'zdata', sl(3, :));
     %create a line to visualise n:
