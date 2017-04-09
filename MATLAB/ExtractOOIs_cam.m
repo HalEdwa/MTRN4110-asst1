@@ -19,24 +19,24 @@ function r = ExtractOOIs_cam(x, y, h)
     y = ranges .* sin(theta);
     
     filterSize = 0.04;
-    poleDia = 0.09;
-    poleDiaTol = 0.3;
+    poleDia = 0.02;
+    poleDiaTol = 0.6;
     clusterEndPts = [1];%have to initialise
     hues = zeros(1, length(x));
-    newHue = 0;
-    rng(9001);%repeatable random numbers
-    for i = 1:100
-        rand();
-    end
+    newHue = 0.3;
+    purple = 213/255;
     %find all clusters of points:
     for i = 2:length(x) - 1
         
-        if (x(i) - x(i-1))^2 + (y(i) - y(i + 1))^2 > filterSize^2
-            newHue = abs(rand());
-            while newHue(1) > 90/255 && newHue(1) < 30/255
-                newHue = abs(rand());
-            end
+        if (x(i) - x(i-1))^2 + (y(i) - y(i - 1))^2 > filterSize^2
+            newHue = mod(newHue + 0.73, 1);
             
+            %filter yellow because its hard to see and purple because it's 
+            %reserved:
+            while (newHue(1) > 90/255 && newHue(1) < 30/255 ) || (newHue(1) > 200/255 && newHue(1) < 230/255)
+                newHue = mod(newHue + 0.73, 1);
+            end
+
             if (x(i) - x(i+1))^2 + (y(i) - y(i+1))^2 > filterSize^2
                 clusterEndPts = [clusterEndPts, i - 1, i + 1];
                 hues(:, i) = 0;%pts not in a cluster are black
@@ -50,14 +50,32 @@ function r = ExtractOOIs_cam(x, y, h)
 
     clusterEndPts = [clusterEndPts, length(x)];
     
+    %the ends of these clusters tend to have points that have fallen off
+    %the back. Trim the size of the clusters:
+    for i = 1:2:length(clusterEndPts)
+        meanX = mean( x(clusterEndPts(i):clusterEndPts(i+1)) );
+        %trim beginning:
+        while abs(x(clusterEndPts(i)) - meanX) > poleDia%tolerance is arbitrary
+            hues(clusterEndPts(i)) = 0;
+            clusterEndPts(i) = clusterEndPts(i) + 1;
+            meanX = mean( x(clusterEndPts(i):clusterEndPts(i+1)) );
+        end
+        %trim end:
+        while abs(x(clusterEndPts(i+1)) - meanX) > poleDia%tolerance is arbitrary
+            hues(clusterEndPts(i+1)) = 0;
+            clusterEndPts(i+1) = clusterEndPts(i+1) - 1;
+            meanX = mean( x(clusterEndPts(i):clusterEndPts(i+1)) );
+        end
+    end
+    
     for i = 1:2:length(clusterEndPts) - 1
     
-          %for the moment, since we don't know what size the OOI is
-          %leave the filtering based on size out
-%         objectSize = pdist([X(clusterEndPts(i)),  Y(clusterEndPts(i)); X(clusterEndPts(i+1)),  Y(clusterEndPts(i+1))]);
-%         if  (objectSize > (poleDia*(1 + poleDiaTol )))||( objectSize < (poleDia*(1 - poleDiaTol)))
-%             continue
-%         end
+        %the 3D camera tends to have trailing points on the outside of
+        %clusters. So compare the y distances only to ignore these:
+        objectSize = abs(y(clusterEndPts(i)) - y(clusterEndPts(i+1)));
+        if  (objectSize < (poleDia*(1 + poleDiaTol )))&&( objectSize > (poleDia*(1 - poleDiaTol)))
+            hues(clusterEndPts(i):clusterEndPts(i+1)) = purple;
+        end
         
         r.N = r.N + 1;
         r.centers.x = [r.centers.x mean(x(clusterEndPts(i):clusterEndPts(i+1)))];
@@ -70,19 +88,17 @@ function r = ExtractOOIs_cam(x, y, h)
     if ~isvalid(h)
         return
     end
-%     the below two lines visualise each cluster in a different colour
-%     plot(X(clusterEndPts(i):clusterEndPts(i+1)), Y(clusterEndPts(i):clusterEndPts(i+1)), 'Color', hsv2rgb(lineColor), 'Marker', '+')%, 'LineStyle', 'none'
-%     lineColor(1) = mod(lineColor(1) + pi, 1);
+
     x = x(hues ~= 0);
     y = y(hues ~= 0);
     hues = hues(hues ~= 0);
-%     colours = hsv2rgb([rand(length(x), 1), ones(length(x), 1), ones(length(x), 1)])';
-%     figure(10);
-%     plot(1:length(hues), hues);
-    colours = hsv2rgb([hues; ones(1, length(hues)); ones(1, length(hues))]');
-    %     for i = 1:length(x)
-%         set(h, 'xdata', x(1:i), 'ydata', y(1:i), 'cdata', colours(1:i)');
-%         pause(0.1)
+    vals = ones(1, length(hues));
+    vals(hues ~= purple) = 0.6;
+    colours = hsv2rgb([hues; ones(1, length(hues)); vals]');
+    
+%     for i = 10:length(x)
+%         set(h, 'xdata', x(1:i), 'ydata', y(1:i), 'cdata', colours(1:i, :));
+%         pause(0.05)
 %     end
 
     set(h, 'xdata', x, 'ydata', y, 'cdata', colours);

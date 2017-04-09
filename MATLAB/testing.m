@@ -30,16 +30,18 @@ xlabel('x'); ylabel('y'); zlabel('z');
 title('transformed pts');
 view(90, 0);
 
-figure(3); hold on;
-guiH.DepthScan = plot(0,0,25,[0 0 0]);   %Depth map at horizon scatterplot handle
-guiH.Marker = scatter(0,0,50, [0 0 0]);  %Object of interest marker overlay Handle
+fig3 = figure(3); hold on; axis equal
+guiH.DepthScan = scatter(0,0,25,[0 0 0]);   %Depth map at horizon scatterplot handle
+guiH.Marker = scatter(0,0,'r*');  %Object of interest marker overlay Handle
+set(fig3, 'position', [30 30 800 800])
 axis([0 1 -0.5 0.5]);
 title('scan of middle row');
+xlabel('x'); ylabel('y');
 %% 
 set(gcf,'currentchar',' ');         % set a dummy character
     
 %i = 39 breaks the fitting tool for some reason
-for i = 52:99 %i=31 is a frams with no bad points
+for i = 72;%52:99 %i=31 is a frams with no bad points
     
     x = recordedData(1, :, i);
     y = recordedData(2, :, i);
@@ -86,8 +88,8 @@ for i = 52:99 %i=31 is a frams with no bad points
     xScan = x(y==0);
     zScan = z(y==0);
 %     set(guiH.DepthScan, 'xdata', sl(1, :), 'ydata', sl(2, :));
-    OOIs = ExtractOOIs_cam(sl(1, :), sl(2, :), guiH.Marker);
-    
+    OOIs = ExtractOOIs_cam(sl(1, :), sl(2, :), guiH.DepthScan);
+    set(guiH.Marker, 'xdata', OOIs.centers.x, 'ydata', OOIs.centers.y);
 
     %%
     set(guiH.scanLine, 'xdata', sl(1, :), 'ydata', sl(2, :), 'zdata', sl(3, :));
@@ -102,7 +104,7 @@ for i = 52:99 %i=31 is a frams with no bad points
     set(guiH.roit, 'xdata', roit(1, :), 'ydata', roit(2, :), 'zdata', roit(3, :))
 %     scatter3(roit(1, :), roit(2, :), roit(3, :), 'r*');
  
-    pause
+%     pause
     if get(gcf,'currentchar')~=' '
         break;
     end

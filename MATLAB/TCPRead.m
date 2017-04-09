@@ -45,11 +45,12 @@ xlabel('x'); ylabel('y'); zlabel('z');
 title('transformed pts');
 view(90, 0);
 
-figure(3); hold on;
-guiH.DepthScan = plot(0,0,25,[0 0 0]);   %Depth map at horizon scatterplot handle
-guiH.Marker = scatter(0,0,50, [0 0 0]);  %Object of interest marker overlay Handle
-axis([0 1 -0.5 0.5]);
+fig3 = figure(3); hold on; axis equal
+guiH.DepthScan = scatter(0,0,25,[0 0 0]);   %Depth map at horizon scatterplot handle
+guiH.Marker = scatter(0,0,'r*');  %Object of interest marker overlay Handle
+set(fig3, 'position', [30 30 800 800])
 title('scan of middle row');
+xlabel('x'); ylabel('y');
 
 
 
@@ -116,9 +117,9 @@ while ((Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0))
     set(guiH.Vertices, 'xdata', x, 'ydata', y, 'zdata', z);
     xScan = x(y==0);
     zScan = z(y==0);
-%     set(guiH.DepthScan, 'xdata', sl(1, :), 'ydata', sl(2, :));
-    OOIs = ExtractOOIs_cam(sl(1, :), sl(2, :), guiH.Marker);
-    
+    OOIs = ExtractOOIs_cam(sl(1, :), sl(2, :), guiH.DepthScan);
+    set(guiH.DepthScan, 'xdata', OOIs.centers.x, 'ydata', OOIs.centers.y);
+
 
     set(guiH.scanLine, 'xdata', sl(1, :), 'ydata', sl(2, :), 'zdata', sl(3, :));
     %create a line to visualise n:
