@@ -27,17 +27,16 @@ void setup() {
 void loop() {
   IMU_Data[0] = HEADER;
   sixDOF.getRawValues(&IMU_Data[1]);
-
-  //int Bruh[8] = {20,20,20,20,40,40,40,40};
-
+  
   IMU_Data[7] = (int)(millis() - time);
-  Serial.write((byte*)IMU_Data[7],16);
+  
+  Serial.write((char*)IMU_Data, sizeof(IMU_Data));
   Serial.flush();
 
   time = millis();
-  
-  
   //printRawValues();
+
+  delay(10);
 }
 
 void printRawValues() {
