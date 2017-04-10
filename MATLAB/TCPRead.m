@@ -12,7 +12,6 @@ MaxRecordSize = 100;
 
 t = tcpip(ip_address,remote_port);%Initiate TCP connection
 t.ByteOrder = 'littleEndian';%Set Endian to convert
-set(t,'InputBufferSize', width*height*3*2);
 
 fopen(t);
 pause(1)
@@ -98,14 +97,12 @@ while ((Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0))
     roit = cloudTransform(roi, n);
     sl = getScanLine(pct, 0.005);
 
-    % plotting and transformation of live camera data:
-    
+    % plotting and transformation of live camera data:    
     set(guiH.Vertices, 'xdata', x, 'ydata', y, 'zdata', z);
     xScan = x(y==0);
     zScan = z(y==0);
     set(guiH.DepthScan, 'xdata', sl(1, :), 'ydata', sl(2, :));
 %     PlotOOIs(OOIs, guiH.Marker);
-
 
     set(guiH.scanLine, 'xdata', sl(1, :), 'ydata', sl(2, :), 'zdata', sl(3, :));
     %create a line to visualise n:
@@ -121,10 +118,6 @@ while ((Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0))
  
     
     %%
-
-    
-
-
     %record a rosbag
 %     if (rosbagFrame < MaxRecordSize)
 %         rosbagXYZ(rosbagFrame).x = x;
