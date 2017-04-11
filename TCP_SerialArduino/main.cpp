@@ -141,14 +141,14 @@ int _tmain(int argc, _TCHAR* argv[])
 
 			/*====== Send buffer ======*/
 			if (readResult == dataLength) {
-
+				//printf("%s \n", (char*)incomingData);
 				iSendResult = send(ClientSocket, (char*)incomingData, sizeof(incomingData), 0);
 				if (iSendResult == SOCKET_ERROR) {
 					printf("send failed with error: %d\n", WSAGetLastError());
 					closesocket(ClientSocket);
 					WSACleanup();
 				}
-				printf("Bytes sent: %d\n", iSendResult);
+				//printf("Bytes sent: %d\n", iSendResult);
 				counter = 0;
 			}
 		}

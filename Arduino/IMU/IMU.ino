@@ -9,6 +9,7 @@ int HEADER = 18500 ;//0x4844; //header of the stream, 0x4844 in ASCII is "HD"
 FreeSixIMU sixDOF = FreeSixIMU();
 
 int IMU_Data[8]; // 0 header 1-3 accelerometer, 4-6 gyroscope 7 dt
+float IMU_Buffer[6];
 unsigned long time;
 
 void setup() {
@@ -26,13 +27,13 @@ void setup() {
 
 void loop() {
   IMU_Data[0] = HEADER;
+  //sixDOF.getValues1000(&IMU_Data[1]);
   sixDOF.getRawValues(&IMU_Data[1]);
   
   IMU_Data[7] = (int)(millis() - time);
   
   Serial.write((char*)IMU_Data, sizeof(IMU_Data));
   Serial.flush();
-
   time = millis();
   //printRawValues();
 
