@@ -12,7 +12,7 @@ function IMU_Process()
     Handles.Wy = plot(0,0,'g');
     Handles.Wz = plot(0,0,'b');
     Handles.Title_Gyros = title('');
-    %ylim([-500,500]);
+    ylim([-800,800]);
     xlabel('Time (Seconds)')
     ylabel('Rate of Yaw (Degrees/Sec)')
     zoom on; grid on;
@@ -22,7 +22,7 @@ function IMU_Process()
     Handles.Ay = plot(0,0,'g');
     Handles.Az = plot(0,0,'b');
     Handles.Title_Accel = title('');
-    %ylim([-100,100]);
+    ylim([-15,15]);
     xlabel('Time (Seconds)')
     ylabel('Linear Acceleration (M/Sec^2)')
     zoom on; grid on;
@@ -32,6 +32,7 @@ function IMU_Process()
     Handles.Pitch_G = plot(0,0,'g');
     Handles.Yaw_G = plot(0,0,'b');
     Handles.Title_Attitude_G = title('');
+    ylim([-100, 100]);
     xlabel('Time (Seconds)')
     ylabel('Attitude (Degrees)')
     zoom on; grid on;
@@ -40,6 +41,7 @@ function IMU_Process()
     Handles.Roll_A = plot(0,0,'r');
     Handles.Pitch_A = plot(0,0,'g');
     Handles.Title_Attitude_A = title('');
+    ylim([-100, 100]);
     xlabel('Time (Seconds)')
     ylabel('Attitude (Degrees)')
     zoom on; grid on;
@@ -47,10 +49,19 @@ function IMU_Process()
     %Initialise variables
     timeout = 0;
     IMU_data = struct('Attitude_G',[0, 0, 0],'Attitude_A',[0, 0],'Accel',[0, 0, 0],'Gyros',[0, 0, 0],'Dt',0,'TimeStamp',0);
-   
-    Bias = EstimateBias(t);
-    %Bias.Ax = -0.0185; Bias.Ay = 0.1690; Bias.Az = 8.9446;
-    %Bias.Gx = -0.0355; Bias.Gy = 0.0397; Bias.Gz = 0.0190;
+    
+    c = 1;
+    % Discard first noisy values
+    while c < 100
+        if (get(t, 'BytesAvailable') > 0) 
+            Parse_IMU_Serial(t);   % Read over TCP and save IMU values
+            c = c + 1;
+        end
+    end
+    
+    %Bias = EstimateBias(t);
+    Bias.Ax = -0.0175; Bias.Ay = -0.0868; Bias.Az = -1.0134;
+    Bias.Gx = -1.8285; Bias.Gy = 2.5944; Bias.Gz = 1.3713;
     
     counter = 1;
     % Receive lines of data from server 
@@ -77,9 +88,9 @@ function IMU_Process()
            IMU_data.Attitude_G(counter + 1,:) = ProcessAttitude_Gyros(IMU_data.Gyros(counter,:), IMU_data.Dt(counter), IMU_data.Attitude_G(counter,:));   
            IMU_data.Attitude_A(counter + 1,:) = ProcessAttitude_Accel(IMU_data.Accel(counter,:), IMU_data.Attitude_A(counter,:));
            
-           if (rem(counter,10) == 0)  %Plot only every 5 frames  
+           %if (rem(counter,5) == 0)  %Plot only every 5 frames  
                Plot_IMU(Handles, IMU_data, counter);
-           end
+           %end
            
            counter = counter + 1;
            timeout = 0;
@@ -101,15 +112,15 @@ function NewAttitude = ProcessAttitude_Gyros(gyros, dt, CurrentAttitude)
     wy = gyros(2);  p = CurrentAttitude(2); 
     wz = gyros(3);  y = CurrentAttitude(3);
     
-    if (~isnan(wx) && ~isnan(wy) && ~isnan(wz)) % If data is valid
+%     if (~isnan(wx) && ~isnan(wy) && ~isnan(wz)) % If data is valid
         roll = r + dt*(wx + (wy*sin(r) + wz*cos(r))*tan(p)); 
         pitch = p + dt*(wy*cos(r) - wz*sin(r));
         yaw = y + dt*((wy*sin(r) + wz*cos(r))/cos(p));
 
         NewAttitude = [roll, pitch, yaw]; %new global Roll, Pitch, Yaw (at time t+dt)
-    else
-        NewAttitude = CurrentAttitude;
-    end
+%     else
+%         NewAttitude = CurrentAttitude;
+%     end
 end
 
 function NewAttitude = ProcessAttitude_Accel(accel, CurrentAttitude)
@@ -117,14 +128,14 @@ function NewAttitude = ProcessAttitude_Accel(accel, CurrentAttitude)
     ay = accel(2);
     az = accel(3);
  
-    if (~isnan(ax) && ~isnan(ay) && ~isnan(az)) % Is data valid
-        roll = atan(-ax/az);
-        pitch = atan(ay/sqrt(ax^2 + az^2));
+    %if (~isnan(ax) && ~isnan(ay) && ~isnan(az)) % Is data valid
+        pitch = atan(-ax/az);
+        roll = atan(ay/sqrt(ax^2 + az^2));
 
         NewAttitude = [roll, pitch]; %new global Roll, Pitch (at time t+dt)
-    else
-        NewAttitude = CurrentAttitude;
-    end
+%     else
+%         NewAttitude = CurrentAttitude;
+%     end
 end
 
 function Plot_IMU(mh, imu, i)  
@@ -140,9 +151,9 @@ function Plot_IMU(mh, imu, i)
     s = sprintf('Accelerometer Plot: x(r), y(g), z(b)');
     set(mh.Title_Accel, 'string', s);
     
-    set(mh.Roll_G, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Attitude_G(1:i,1)*(180/pi));
-    set(mh.Pitch_G, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Attitude_G(1:i,2)*(180/pi));
-    set(mh.Yaw_G, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Attitude_G(1:i,3)*(180/pi));
+    set(mh.Roll_G, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Attitude_G(1:i,1)*2*(180/pi));
+    set(mh.Pitch_G, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Attitude_G(1:i,2)*2*(180/pi));
+    set(mh.Yaw_G, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Attitude_G(1:i,3)*2*(180/pi));
     s = sprintf('Attitude_G Plot: Roll(r), Pitch(g), Yaw(b)');
     set(mh.Title_Attitude_G, 'string', s);
     
@@ -177,17 +188,15 @@ function imuRaw = Parse_IMU_Serial(t)
         imuRaw.Gz = recvBuff(7)*convert_g;
         imuRaw.Dt = recvBuff(8)/1000;
     end
-    
-    recvBuff(1)
     return;
 end
 
 function Bias = EstimateBias(t)
     Bias_Buffer = struct('Accel', [0, 0, 0], 'Gyros', [0, 0, 0]);
-  
+    
     c = 1;
     % Calculate Bias
-    while c < 50
+    while c < 200
         if (get(t, 'BytesAvailable') > 0) 
             temp = Parse_IMU_Serial(t);   % Read over TCP and save IMU values
             Bias_Buffer.Accel(c,1) = temp.Ax;
@@ -202,7 +211,7 @@ function Bias = EstimateBias(t)
     
     Bias.Ax = mean(Bias_Buffer.Accel(:,1));
     Bias.Ay = mean(Bias_Buffer.Accel(:,2));
-    Bias.Az = mean(Bias_Buffer.Accel(:,3));
+    Bias.Az = -9.81 + mean(Bias_Buffer.Accel(:,3));
     Bias.Gx = mean(Bias_Buffer.Gyros(:,1));
     Bias.Gy = mean(Bias_Buffer.Gyros(:,2));
     Bias.Gz = mean(Bias_Buffer.Gyros(:,3));
