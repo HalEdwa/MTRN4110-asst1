@@ -18,9 +18,9 @@ function r = ExtractOOIs_cam(x, y, h)
     x = ranges .* cos(theta);
     y = ranges .* sin(theta);
     
-    filterSize = 0.04;
-    poleDia = 0.02;
-    poleDiaTol = 0.6;
+    filterSize = 0.03;
+    poleDia = 0.04;
+    poleDiaTol = 0.3;
     clusterEndPts = [1];%have to initialise
     hues = zeros(1, length(x));
     newHue = 0.3;
@@ -55,13 +55,13 @@ function r = ExtractOOIs_cam(x, y, h)
     for i = 1:2:length(clusterEndPts)
         meanX = mean( x(clusterEndPts(i):clusterEndPts(i+1)) );
         %trim beginning:
-        while abs(x(clusterEndPts(i)) - meanX) > poleDia%tolerance is arbitrary
+        while abs(x(clusterEndPts(i)) - meanX) > poleDia*0.6%tolerance is arbitrary
             hues(clusterEndPts(i)) = 0;
             clusterEndPts(i) = clusterEndPts(i) + 1;
             meanX = mean( x(clusterEndPts(i):clusterEndPts(i+1)) );
         end
         %trim end:
-        while abs(x(clusterEndPts(i+1)) - meanX) > poleDia%tolerance is arbitrary
+        while abs(x(clusterEndPts(i+1)) - meanX) > poleDia*0.6%tolerance is arbitrary
             hues(clusterEndPts(i+1)) = 0;
             clusterEndPts(i+1) = clusterEndPts(i+1) - 1;
             meanX = mean( x(clusterEndPts(i):clusterEndPts(i+1)) );

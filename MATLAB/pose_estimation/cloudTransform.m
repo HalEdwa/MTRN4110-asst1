@@ -11,8 +11,8 @@ function [cTran] = cloudTransform(c, n)
     ry = pitch;
     rz = yaw;
     
-    pitchDeg = pitch*180/pi;
-    rollDeg = roll*180/pi;
+    pitchDeg = pitch*180/pi
+    rollDeg = -roll*180/pi
     %matrix taken from lecture notes
     rotX = [1 0 0; 0 cos(rx) -sin(rx); 0 sin(rx) cos(rx)];
     rotY = [cos(ry) 0 sin(ry); 0 1 0; -sin(ry) 0 cos(ry)];
