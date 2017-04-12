@@ -98,6 +98,7 @@ function IMU_Process()
        
        timeout = timeout + 1;
        pause(0.01)
+       
     end
     
     % Disconnect and clean up the server connection.
@@ -151,9 +152,9 @@ function Plot_IMU(mh, imu, i)
     s = sprintf('Accelerometer Plot: x(r), y(g), z(b)');
     set(mh.Title_Accel, 'string', s);
     
-    set(mh.Roll_G, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Attitude_G(1:i,1)*2*(180/pi));
-    set(mh.Pitch_G, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Attitude_G(1:i,2)*2*(180/pi));
-    set(mh.Yaw_G, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Attitude_G(1:i,3)*2*(180/pi));
+    set(mh.Roll_G, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Attitude_G(1:i,1)*4*(180/pi));
+    set(mh.Pitch_G, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Attitude_G(1:i,2)*4*(180/pi));
+    set(mh.Yaw_G, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Attitude_G(1:i,3)*4*(180/pi));
     s = sprintf('Attitude_G Plot: Roll(r), Pitch(g), Yaw(b)');
     set(mh.Title_Attitude_G, 'string', s);
     

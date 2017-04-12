@@ -34,6 +34,7 @@ int recvbuflen = DEFAULT_BUFLEN;
 
 auto system_start = std::chrono::high_resolution_clock::now();
 auto lastTime = std::chrono::high_resolution_clock::now();
+auto lastTime1 = std::chrono::high_resolution_clock::now();
 
 /*===============================================*/
 
@@ -126,29 +127,25 @@ int _tmain(int argc, _TCHAR* argv[])
 	while (SP->IsConnected())
 	{
 		auto currentTime = std::chrono::high_resolution_clock::now();
-		auto dur = currentTime - lastTime;
+		
+		if ((currentTime - lastTime1) > (std::chrono::milliseconds::duration(10))) {
+			lastTime1 = currentTime;
+			readResult = SP->ReadData(incomingData, dataLength);
+		}
 
 		if ((currentTime - lastTime) > (std::chrono::milliseconds::duration(1000 / freq))) {
 			lastTime = currentTime;
 
-			readResult = SP->ReadData(incomingData, dataLength);
-
-			//printf("Bytes read: (0 means no data available) %i\n", readResult);
-			//incomingData[readResult] = 0;
-
 			counter++;
-			//printf("%s \n", incomingData);
 
 			/*====== Send buffer ======*/
 			if (readResult == dataLength) {
-				//printf("%s \n", (char*)incomingData);
 				iSendResult = send(ClientSocket, (char*)incomingData, sizeof(incomingData), 0);
 				if (iSendResult == SOCKET_ERROR) {
 					printf("send failed with error: %d\n", WSAGetLastError());
 					closesocket(ClientSocket);
 					WSACleanup();
 				}
-				//printf("Bytes sent: %d\n", iSendResult);
 				counter = 0;
 			}
 		}
