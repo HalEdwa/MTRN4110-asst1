@@ -3,11 +3,14 @@
 #include <FIMU_ADXL345.h>
 #include <FIMU_ITG3200.h>
 
+int HEADER = 18500 ;//0x4844; //header of the stream, 0x4844 in ASCII is "HD"
+
 // Set the FreeSixIMU object
 FreeSixIMU sixDOF = FreeSixIMU();
 
-int IMU_Data[6]; // 0-2 accelerometer, 3-5 gyroscope
-float TimeStamp = 0;
+int IMU_Data[8]; // 0 header 1-3 accelerometer, 4-6 gyroscope 7 dt
+float IMU_Buffer[6];
+unsigned long time;
 
 void setup() {
   Serial.begin(9600);
@@ -23,52 +26,39 @@ void setup() {
 }
 
 void loop() {
-  sixDOF.getRawValues(IMU_Data);
+  IMU_Data[0] = HEADER;
+  //sixDOF.getValues1000(&IMU_Data[1]);
+  sixDOF.getRawValues(&IMU_Data[1]);
   
+  IMU_Data[7] = (int)(millis() - time);
+  
+  Serial.write((char*)IMU_Data, sizeof(IMU_Data));
+  Serial.flush();
+  time = millis();
   //printRawValues();
-  sendRawValues();
-}
 
-void sendRawValues() {  
-  TimeStamp = millis()/1000.0;
-  
-  //Send Framing char
-  Serial.print('A');
-
-  //Send gyroscope and accelerator values with padding to keep buffer length fixed
-  for (int i = 0; i < 6; i++) {
-    if(IMU_Data[i]>=0) Serial.print(NULL);
-    if(IMU_Data[i]<10 && IMU_Data[i]>-10) Serial.print(NULL);
-    if (IMU_Data[i]<100 && IMU_Data[i]>-100) Serial.print(NULL);
-    if (IMU_Data[i]<1000 && IMU_Data[i]>-1000) Serial.print(NULL);
-    if (IMU_Data[i]<10000 && IMU_Data[i]>-10000) Serial.print(NULL);
-    Serial.print(IMU_Data[i]);
-  }
-
-  //Send current system time with padding to keep buffer length fixed
-  if(TimeStamp<10) Serial.print(NULL);
-  if (TimeStamp<100) Serial.print(NULL);
-  if (TimeStamp<1000) Serial.print(NULL);
-  if (TimeStamp<10000) Serial.print(NULL);
-  if (TimeStamp<100000) Serial.print(NULL);
-  Serial.print(TimeStamp);
-  delay(2);
-  //Serial.print('\n');
+  delay(10);
 }
 
 void printRawValues() {
-  Serial.print("Accelerometer: ");
+  Serial.print("Header: ");
   Serial.print(IMU_Data[0]);
   Serial.print("  ");
+  Serial.print("Accelerometer: ");
   Serial.print(IMU_Data[1]);
   Serial.print("  ");
   Serial.print(IMU_Data[2]);
+  Serial.print("  ");
+  Serial.print(IMU_Data[3]);
   Serial.print("    ");
   Serial.print("Gyroscope: ");
-  Serial.print(IMU_Data[3]);
-  Serial.print("  ");  
   Serial.print(IMU_Data[4]);
+  Serial.print("  ");  
+  Serial.print(IMU_Data[5]);
   Serial.print("  ");
-  Serial.println(IMU_Data[5]);
+  Serial.println(IMU_Data[6]);
+  Serial.print("  ");
+  Serial.print("Dt: ");
+  Serial.print(IMU_Data[7]);
 }
 

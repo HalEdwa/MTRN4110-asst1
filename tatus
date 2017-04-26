@@ -1,0 +1,267 @@
+[1mdiff --git a/API_3DCamera_exampleUsingIt/samples/ConsoleDemo/ConsoleDemo.cxx b/API_3DCamera_exampleUsingIt/samples/ConsoleDemo/ConsoleDemo.cxx[m
+[1mindex 8c8b61b..3ec90b9 100644[m
+[1m--- a/API_3DCamera_exampleUsingIt/samples/ConsoleDemo/ConsoleDemo.cxx[m
+[1m+++ b/API_3DCamera_exampleUsingIt/samples/ConsoleDemo/ConsoleDemo.cxx[m
+[36m@@ -437,6 +437,8 @@[m [mvoid configureNode(Node node)[m
+         g_dnode = node.as<DepthNode>();[m
+         configureDepthNode();[m
+         g_context.registerNode(node);[m
+[32m+[m		[32mg_dnode.setEnableFilter1(true);[m
+[32m+[m		[32mg_dnode.setEnableFilter9(true);[m
+     }[m
+ [m
+     if ((node.is<ColorNode>())&&(!g_cnode.isSet()))[m
+[36m@@ -452,6 +454,7 @@[m [mvoid configureNode(Node node)[m
+         configureAudioNode();[m
+         g_context.registerNode(node);[m
+     }[m
+[32m+[m
+ }[m
+ [m
+ /*----------------------------------------------------------------------------*/[m
+[1mdiff --git a/MATLAB/TCPRead.m b/MATLAB/TCPRead.m[m
+[1mindex 2f67887..cd05678 100644[m
+[1m--- a/MATLAB/TCPRead.m[m
+[1m+++ b/MATLAB/TCPRead.m[m
+[36m@@ -17,22 +17,34 @@[m [mset(t,'InputBufferSize', width*height*3*2);[m
+ fopen(t);[m
+ pause(1)[m
+ [m
+[31m-figure(1);[m
+[32m+[m[32mclose all;[m
+[32m+[m[32mfigure(1); hold on;[m
+ guiH.DepthVisualisation = imagesc();[m
+ colorbar;[m
+ caxis([0 1]);[m
+ axis([0 160 0 120]);[m
+ [m
+[31m-figure(2); clf(); [m
+[31m-guiH.Vertices = plot3(0,0,0,'.', 'MarkerSize', 2);[m
+[31m-axis([0 1 -0.4 0.4 -0.4 0.4]);[m
+[31m-xlabel('Z Depth'); ylabel('X Horizontal'); zlabel('Y Vertical');[m
+[31m-zoom on ; grid on;[m
+[32m+[m[32mfigure(2); hold on;zoom on ; grid on; axis equal;[m
+[32m+[m[32mguiH.Vertices = plot3(0,0,0,'.');[m
+[32m+[m[32mguiH.roi = scatter3(0, 0, 0, 'g');[m
+[32m+[m[32mguiH.normalLine = plot3(0, 0, 0, 'r');[m
+[32m+[m[32mxlabel('x'); ylabel('y'); zlabel('z');[m
+[32m+[m[32mtitle('untransformed point cloud data');[m
+[32m+[m[32mview(90, 0);[m
+ [m
+[31m-figure(3); clf(); hold on;[m
+[32m+[m
+[32m+[m[32mfigure(3); hold on;[m
+ guiH.DepthScan = plot(0,0,'b.');   %Depth map at horizon scatterplot handle[m
+ guiH.Marker = plot(0,0,'g.','MarkerSize',20);  %Object of interest marker overlay Handle[m
+ axis([-0.4 0.4 0 1]);    %in meters[m
+[32m+[m[32mtitle('scan of middle row');[m
+[32m+[m
+[32m+[m[32mfigure(4); hold on; axis equal; zoom on;grid on;[m
+[32m+[m[32mguiH.pct = scatter3(0, 0, 0, 'b.');[m
+[32m+[m[32mguiH.roit = scatter3(0, 0, 0, 'g');[m
+[32m+[m[32mxlabel('x'); ylabel('y'); zlabel('z');[m
+[32m+[m[32mtitle('transformed pts');[m
+[32m+[m[32mview(90, 0);[m
+ [m
+ rosbagXYZ = repmat(struct('x', [], 'y', [], 'z', []),1,150);[m
+ rosbagFrame = 0;[m
+[36m@@ -61,32 +73,66 @@[m [mwhile ((Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0))[m
+     z(z < 0) = -10;    %Negative depths to be disregarded[m
+     z(z > MaxDist) = -10;   %Value for depth too far away disregarded[m
+     [m
+[31m-    %record a rosbag[m
+[31m-    if (rosbagFrame < MaxRecordSize)[m
+[31m-        rosbagXYZ(rosbagFrame).x = x;[m
+[31m-        rosbagXYZ(rosbagFrame).y = y;[m
+[31m-        rosbagXYZ(rosbagFrame).z = z;[m
+[31m-    else [m
+[31m-        disp('Rosbag Full');[m
+[31m-    end[m
+[31m-    [m
+[32m+[m[32m    %plot depthmap before bad points are removed[m
+     DepthMap = reshape(z,[160,120]);[m
+[31m-    %rotate image by 90 degree[m
+[31m-    DepthMap = DepthMap';[m
+[31m-    %flip image upside down[m
+[31m-    DepthMap = flipud(DepthMap);   [m
+[32m+[m[32m    %flip image upside down and rotate 90 deg[m
+[32m+[m[32m    DepthMap = flipud(DepthMap');[m[41m   [m
+[32m+[m[32m    set(guiH.DepthVisualisation, 'CData', DepthMap);[m
+[32m+[m
+[32m+[m[32m    x = x(z ~= -10);[m
+[32m+[m[32m    y = y(z ~= -10);[m
+[32m+[m[32m    z = z(z ~= -10);[m
+     [m
+[32m+[m[32m    set(guiH.Vertices, 'xdata', x, 'ydata', y, 'zdata', z);[m
+     xScan = x(y==0);[m
+     zScan = z(y==0);[m
+[31m-    [m
+[31m-%     OOIs = ExtractOOIs_cam(xScan, zScan);[m
+[31m-    [m
+[31m-    %Display necessary plots[m
+[31m-    set(guiH.DepthVisualisation, 'CData', DepthMap);[m
+[31m-    set(guiH.Vertices, 'xdata', z, 'ydata', x, 'zdata', y);[m
+     set(guiH.DepthScan, 'xdata', xScan, 'ydata', zScan);[m
+ %     PlotOOIs(OOIs, guiH.Marker);[m
+[32m+[m
+[32m+[m[32m    %% plotting and transformation of live camera data:[m
+     [m
+[32m+[m[32m    pc = [x'; y'; z'];[m
+[32m+[m[32m    roi = camROI(pc);[m
+[32m+[m[32m    set(guiH.roi, 'xdata', roi(1, :), 'ydata', roi(2, :), 'zdata', roi(3, :));[m
+[32m+[m[32m    if numel(roi) < 10*3[m
+[32m+[m[32m        pause(0.01);[m
+[32m+[m[32m        disp('not enough pts');[m
+[32m+[m[32m        continue[m
+[32m+[m[32m    end[m
+[32m+[m[32m    [~, n, ~] = getOrientation(roi);[m
+[32m+[m[32m    pct = cloudTransform(pc, n);[m
+[32m+[m[32m    roit = cloudTransform(roi, n);[m
+[32m+[m
+[32m+[m[32m    x = x(z ~= -10);[m
+[32m+[m[32m    y = y(z ~= -10);[m
+[32m+[m[32m    z = z(z ~= -10);[m
+[32m+[m[32m    pc = [x;y;z];[m
+[32m+[m[32m    %create a line to visualise n:[m
+[32m+[m[32m    nLine = [roi(:, 1), roi(:, 1) + n'*0.2/(norm(n))];[m
+[32m+[m[32m    set(guiH.normalLine, 'xdata', nLine(1, :), 'ydata', nLine(2, :), 'zdata', nLine(3, :));[m
+[32m+[m[32m%     plot3(nLine(1, :), nLine(2, :), nLine(3, :), 'linewidth', 10);[m
+[32m+[m[41m    [m
+[32m+[m[32m    set(guiH.pct, 'xdata', pct(1, :), 'ydata', pct(2, :), 'zdata', pct(3, :));[m
+[32m+[m[32m%     scatter3(pct(1, :), pct(2, :), pct(3, :), 'b.');[m
+[32m+[m[32m    set(guiH.roit, 'xdata', roit(1, :), 'ydata', roit(2, :), 'zdata', roit(3, :))[m
+[32m+[m[32m%     scatter3(roit(1, :), roit(2, :), roit(3, :), 'r*');[m
+[32m+[m
+[32m+[m[41m    [m
+[32m+[m[41m    [m
+[32m+[m[41m    [m
+[32m+[m[32m    %%[m
+[32m+[m
+[32m+[m[41m    [m
+[32m+[m
+[32m+[m
+[32m+[m[32m    %record a rosbag[m
+[32m+[m[32m%     if (rosbagFrame < MaxRecordSize)[m
+[32m+[m[32m%         rosbagXYZ(rosbagFrame).x = x;[m
+[32m+[m[32m%         rosbagXYZ(rosbagFrame).y = y;[m
+[32m+[m[32m%         rosbagXYZ(rosbagFrame).z = z;[m
+[32m+[m[32m%     else[m[41m [m
+[32m+[m[32m%         disp('Rosbag Full');[m
+[32m+[m[32m%     end[m
+     pause(0.01);    %~10ms delay[m
+ end[m
+ [m
+[1mdiff --git a/MATLAB/pose_estimation/camROI.m b/MATLAB/pose_estimation/camROI.m[m
+[1mindex 58da526..d213e40 100644[m
+[1m--- a/MATLAB/pose_estimation/camROI.m[m
+[1m+++ b/MATLAB/pose_estimation/camROI.m[m
+[36m@@ -1,36 +1,25 @@[m
+ function [ pcroi ] = camROI(pc)[m
+     [m
+[32m+[m[32m    x = pc(1, :);%converting to xs and ys could be avoided if there[m[41m [m
+[32m+[m[32m                %was a way to return a subset of a matrix as a matrix[m
+[32m+[m[32m                %not a vector[m
+[32m+[m[32m    y = pc(2, :);[m
+[32m+[m[32m    z = pc(3, :);[m
+     [m
+[31m-    roiW = 50;[m
+[31m-    roiH = 20;[m
+[31m-[m
+[31m-    %it's a lot easier to extract the ROI and then discard bad points:[m
+[31m-    imgSize = [160 120];[m
+[31m-    badZ = -10;%the value z is set to this when it's bad[m
+[32m+[m[32m    roixSize = 0.1;%m[m
+[32m+[m[32m    roizSize = 0.1;[m
+[32m+[m[32m    zOffset = 0.1;[m
+[32m+[m[32m    badZ = -10;[m
+     [m
+[31m-    x = reshape(pc(1, :), imgSize);[m
+[31m-    y = reshape(pc(2, :), imgSize);[m
+[31m-    z = reshape(pc(3, :), imgSize);[m
+[32m+[m[32m    xCriteria = false(1, numel(pc(1, :)));[m
+[32m+[m[32m    zCriteria = xCriteria;[m
+[32m+[m[32m    minZ = min(z(z ~= badZ));[m
+     [m
+[31m-    yO = 30;[m
+[31m-    roi = false(imgSize);[m
+[31m-    roi(  (size(roi, 1)/2 - roiW/2):(size(roi, 2)/2 + roiW/2), (end - roiH-yO):(end-yO)) = true;[m
+[32m+[m[32m    xCriteria = x > -roixSize & x < roixSize;[m
+[32m+[m[32m    zCriteria = z > (minZ + zOffset) & z < (minZ + zOffset + roizSize) & z ~= badZ;[m
+     [m
+[31m-    x = x(roi);[m
+[31m-    y = y(roi);[m
+[31m-    z = z(roi);[m
+[32m+[m[32m    roi = xCriteria & zCriteria;[m
+     [m
+[31m-    roix = reshape(x, [1, numel(x)]);[m
+[31m-    roiy = reshape(y, [1, numel(y)]);[m
+[31m-    roiz = reshape(z, [1, numel(z)]);[m
+[31m-    [m
+[31m-    roix = roix(roiz ~= badZ);[m
+[31m-    roiy = roiy(roiz ~= badZ);[m
+[31m-    roiz = roiz(roiz ~= badZ);[m
+[31m-%     figure(3);clf();[m
+[31m-%     xlabel('x'); ylabel('y'); zlabel('z');[m
+[31m-%     hold on; axis equal; grid on;[m
+[31m-%     scatter3(roix, roiy, roiz, 'g.');[m
+[31m-    pcroi = [roix; roiy; roiz];[m
+[32m+[m[32m    pcroi = [x(roi); y(roi); z(roi)];[m
+ end[m
+ [m
+[1mdiff --git a/MATLAB/pose_estimation/cloudTransform.asv b/MATLAB/pose_estimation/cloudTransform.asv[m
+[1mdeleted file mode 100644[m
+[1mindex fc5dbc3..0000000[m
+[1m--- a/MATLAB/pose_estimation/cloudTransform.asv[m
+[1m+++ /dev/null[m
+[36m@@ -1,25 +0,0 @@[m
+[31m-function [cTran] = cloudTransform(c, n)[m
+[31m-    %%usage: c = [xVals; yVals; zVals], n = normal vector(orientation)[m
+[31m-%     [~, n, ~] = getOrientation(c(1, :), c(2, :), c(3, :));[m
+[31m-[m
+[31m-    n = n / norm(n);[m
+[31m-    pitch = asin(n(1));[m
+[31m-    roll = asin( -n(2) / cos(pitch));[m
+[31m-    yaw = 0;%can't be calculated from a plane[m
+[31m-[m
+[31m-    rx = roll - pi;[m
+[31m-    ry = pitch;[m
+[31m-    rz = yaw;[m
+[31m-    [m
+[31m-    %matrix taken from lecture notes[m
+[31m-    rotX = [1 0 0; 0 cos(rx) -sin(rx); 0 sin(rx) cos(rx)];[m
+[31m-    rotY = [cos(ry) 0 sin(ry); 0 1 0; -sin(ry) 0 cos(ry)];[m
+[31m-    rotZ = [cos(rz) -sin(rz) 0; sin(rz) cos(rz) 0; 0 0 1];[m
+[31m-    rot3Dpt = rotZ * rotY * rotX;[m
+[31m-    [m
+[31m-    for i = 1:size(c, 2)[m
+[31m-        c(:, i) = rot3Dpt * c(:, i);[m
+[31m-    end[m
+[31m-    [m
+[31m-    cTran = c;[m
+[31m-end[m
+\ No newline at end of file[m
+[1mdiff --git a/MATLAB/pose_estimation/getOrientation.m b/MATLAB/pose_estimation/getOrientation.m[m
+[1mindex 817e337..11786c5 100644[m
+[1m--- a/MATLAB/pose_estimation/getOrientation.m[m
+[1m+++ b/MATLAB/pose_estimation/getOrientation.m[m
+[36m@@ -1,6 +1,6 @@[m
+ function [point, normal, fitresult] = getOrientation(c)[m
+ %% usage: getOrientation([xData; yData; zData])[m
+[31m-[m
+[32m+[m[41m    [m
+     %pretty sure this just turns the x, y and z data into 3 vectors instead[m
+     %of matrices[m
+     [fitresult, ~] = fit( [c(1, :)', c(2, :)'], c(3, :)', 'poly11');[m
+[36m@@ -17,6 +17,12 @@[m [mfunction [point, normal, fitresult] = getOrientation(c)[m
+     %now fit the data back, should be more or less the same as[m
+     %the previos p and n: (the direction of n, not the magnitude)[m
+     normal = [a b -c];[m
+[32m+[m[41m    [m
+[32m+[m[32m    if normal(2) < 0[m
+[32m+[m[32m        %the fit thinks we are not upside down.[m
+[32m+[m[32m        %If we are upside down, there are bigger things to worry about[m
+[32m+[m[32m        normal = -normal;[m
+[32m+[m[32m    end[m
+ [m
+     %% finding the planept is currently not working as it assupes p is a matrix, not a vector[m
+     point = [0 0 0];[m

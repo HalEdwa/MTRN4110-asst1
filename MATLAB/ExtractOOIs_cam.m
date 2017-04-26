@@ -23,4 +23,3 @@ function OOI = ExtractOOIs_cam(x, z)
     end
 return;
 end
-
