@@ -7,41 +7,44 @@ height = 120;
 MaxDist = 3;
 
 % %% 
-% figure(123);
-% subplot(1, 2, 1)
-% hold on;zoom on ; grid on; axis equal;
-% guiH.Vertices = plot3(0,0,0,'.');
-% guiH.roi = scatter3(0, 0, 0, 'g');
-% guiH.normalLine = plot3(0, 0, 0, 'r');
-% xlabel('x'); ylabel('y'); zlabel('z');
-% title('untransformed point cloud data');
-% axis([0 1 -0.7 0.7 -0.7 0.7]);
-% view(225, 15);
-% 
-% % figure(4); 
-% subplot(1, 2, 2)
-% hold on; axis equal; zoom on;grid on;
-% guiH.pct = scatter3(0, 0, 0, 'b.');
-% guiH.roit = scatter3(0, 0, 0, 'g');
-% guiH.scanLine = scatter3(0, 0, 0, 'r');
-% xlabel('x'); ylabel('y'); zlabel('z');
-% title('transformed pts');
-% view(90, 0);
+figure(123);
+subplot(1, 2, 1)
+hold on;zoom on ; grid on; axis equal;
+guiH.Vertices = plot3(0,0,0,'.');
+guiH.roi = scatter3(0, 0, 0, 'g');
+guiH.normalLine = plot3(0, 0, 0, 'r');
+xlabel('x'); ylabel('y'); zlabel('z');
+title('untransformed point cloud data');
+axis([0 1 -0.7 0.7 -0.7 0.7]);
+view(225, 15);
+
+% figure(4); 
+subplot(1, 2, 2)
+hold on; axis equal; zoom on;grid on;
+guiH.pct = scatter3(0, 0, 0, 'b.');
+guiH.roit = scatter3(0, 0, 0, 'g');
+guiH.scanLine = scatter3(0, 0, 0, 'r');
+xlabel('x'); ylabel('y'); zlabel('z');
+title('transformed pts');
+view(90, 0);
 
 fig3 = figure(3); hold on; axis equal
 guiH.DepthScan = scatter(0,0,25,[0 0 0]);   %Depth map at horizon scatterplot handle
 guiH.Marker = scatter(0,0,'r*');  %Object of interest marker overlay Handle
 set(fig3, 'position', [30 30 800 800])
-axis([0 1 -0.5 0.5]);
+% axis([0 1 -0.5 0.5]);
 title('scan of middle row');
 xlabel('x'); ylabel('y');
+
+figure(4);
+guiH.og = surf(zeros(60));
 %% 
 set(gcf,'currentchar',' ');         % set a dummy character
     
 og = OccupancyGrid(3, 3, 0.05);
 landmarkx = [0.5 1   1.5 1.5 1   0.5 1  ];
 landmarky = [0.5 0.5 0.5 1   1   1   1.5];
-og.addLandmarks(landmarkx, landmarky);
+% og.addLandmarks(landmarkx, landmarky);
 
 %i = 39 breaks the fitting tool for some reason
 for i = 52:99 %i=31 is a frams with no bad points
@@ -57,8 +60,7 @@ for i = 52:99 %i=31 is a frams with no bad points
 %     
     x = x/1000; y = y/1000; z = z/1000;  %Convert from mm to m
     x(x < 0) = -10;    %Negative depths to be disregarded
-    
-       x(x > MaxDist) = -10;   %Value for depth too far away disregarded
+    x(x > MaxDist) = -10;   %Value for depth too far away disregarded
 
     y = y(x ~= -10);
     z = z(x ~= -10);
@@ -83,21 +85,20 @@ for i = 52:99 %i=31 is a frams with no bad points
     og.addObservations(sl(1, :), sl(2, :));
     
     % plotting and transformation of live camera data:
-    og.visualise()
-    imagesc(og.Grid);
-    
+    og.visualise(guiH.og);
+    og.decrement();
     xScan = x(y==0);
     zScan = z(y==0);
     OOIs = ExtractOOIs_cam(sl(1, :), sl(2, :), guiH.DepthScan);
     set(guiH.Marker, 'xdata', OOIs.centers.x, 'ydata', OOIs.centers.y);
-%     set(guiH.scanLine, 'xdata', sl(1, :), 'ydata', sl(2, :), 'zdata', sl(3, :));
-%     %create a line to visualise n:
-%     nLine = [roi(:, 1), roi(:, 1) + n'*0.2/(norm(n))];
-%     set(guiH.normalLine, 'xdata', nLine(1, :), 'ydata', nLine(2, :), 'zdata', nLine(3, :));
-%     set(guiH.Vertices, 'xdata', x, 'ydata', y, 'zdata', z);
-%     set(guiH.pct, 'xdata', pct(1, :), 'ydata', pct(2, :), 'zdata', pct(3, :));
-%     set(guiH.roi, 'xdata', roi(1, :), 'ydata', roi(2, :), 'zdata', roi(3, :));
-%     set(guiH.roit, 'xdata', roit(1, :), 'ydata', roit(2, :), 'zdata', roit(3, :))
+    set(guiH.scanLine, 'xdata', sl(1, :), 'ydata', sl(2, :), 'zdata', sl(3, :));
+    %create a line to visualise n:
+    nLine = [roi(:, 1), roi(:, 1) + n'*0.2/(norm(n))];
+    set(guiH.normalLine, 'xdata', nLine(1, :), 'ydata', nLine(2, :), 'zdata', nLine(3, :));
+    set(guiH.Vertices, 'xdata', x, 'ydata', y, 'zdata', z);
+    set(guiH.pct, 'xdata', pct(1, :), 'ydata', pct(2, :), 'zdata', pct(3, :));
+    set(guiH.roi, 'xdata', roi(1, :), 'ydata', roi(2, :), 'zdata', roi(3, :));
+    set(guiH.roit, 'xdata', roit(1, :), 'ydata', roit(2, :), 'zdata', roit(3, :))
  
     pause
     if get(gcf,'currentchar')~=' '

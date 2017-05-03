@@ -426,14 +426,14 @@ void configureColorNode()
     catch (TimeoutException&)
     {
         printf("TimeoutException\n");
-    }   
+    }
 }
 
 /*----------------------------------------------------------------------------*/
 void configureNode(Node node)
 {
     if ((node.is<DepthNode>())&&(!g_dnode.isSet()))
-    {
+    { 
         g_dnode = node.as<DepthNode>();
         configureDepthNode();
         g_context.registerNode(node);

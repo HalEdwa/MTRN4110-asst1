@@ -65,6 +65,10 @@ while t.BytesAvailable == 0 %Wait for incoming bytes
 end
 
 disp('Connected to server');
+figure(5);
+guiH.og = surf(zeros(60));
+og = OccupancyGrid(3, 3, 0.05);
+xlabel('x'); ylabel('y'); zlabel('z');
 
 while ((Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0))         
     if(t.BytesAvailable > 0)    %if connected
@@ -80,13 +84,13 @@ while ((Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0))
     
     
     %uncomment to record some camera data:
-    recordedData(1, :, idx) = x;
-    recordedData(2, :, idx) = y;
-    recordedData(3, :, idx) = z;
-    idx = idx + 1;
-    if idx == length(recordedData(1, 1, :))
-        break;
-    end
+%     recordedData(1, :, idx) = x;
+%     recordedData(2, :, idx) = y;
+%     recordedData(3, :, idx) = z;
+%     idx = idx + 1;
+%     if idx == length(recordedData(1, 1, :))
+%         break;
+%     end
     
     x = x/1000; y = y/1000; z = z/1000;  %Convert from mm to m
     x(x < 0) = -10;    %Negative depths to be disregarded
@@ -99,18 +103,23 @@ while ((Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0))
     
     pc = [x'; y'; z'];
     roi = camROI(pc);
+    set(guiH.Vertices, 'xdata', x, 'ydata', y, 'zdata', z);
+
     if numel(roi) < 20*3
-        pause(0.01);
-        disp('not enough pts');
+        pause(0.1);
+        disp(strcat('not enough pts', num2str(rand())));
+        set(guiH.normalLine, 'xdata', 0, 'ydata', 0, 'zdata', 0);
+        set(guiH.roi, 'xdata', 0, 'ydata', 0, 'zdata', 0);
+
         continue
     end
     [~, n, ~] = getOrientation(roi);
     pct = cloudTransform(pc, n);
     roit = cloudTransform(roi, n);
     sl = getScanLine(pct, 0.005);
+%     sl(2 , :) = sl(2, :) + size(og.Grid, 2) / 2;%temporary, delete after localisation is done
 
     % plotting and transformation of live camera data:
-    set(guiH.Vertices, 'xdata', x, 'ydata', y, 'zdata', z);
     OOIs = ExtractOOIs_cam(sl(1, :), sl(2, :), guiH.DepthScan);
 %     set(guiH.DepthScan, 'xdata', OOIs.centers.x, 'ydata', OOIs.centers.y);
 
@@ -127,7 +136,9 @@ while ((Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0))
     set(guiH.roit, 'xdata', roit(1, :), 'ydata', roit(2, :), 'zdata', roit(3, :))
 %     scatter3(roit(1, :), roit(2, :), roit(3, :), 'r*');
  
-    
+    og.addObservations(sl(1, :), sl(2, :));
+    og.visualise(guiH.og);
+    og.decrement();
     %%
 
     pause(0.1);    %~10ms delay
