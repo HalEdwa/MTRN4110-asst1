@@ -94,6 +94,9 @@ function r = ExtractOOIs_cam(x, y, h)
     hues = hues(hues ~= 0);
     vals = ones(1, length(hues));
     vals(hues ~= purple) = 0.6;
+    if numel(hues) == 0
+        return
+    end
     colours = hsv2rgb([hues; ones(1, length(hues)); vals]');
     
 %     for i = 10:length(x)

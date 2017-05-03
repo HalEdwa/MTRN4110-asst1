@@ -7,7 +7,7 @@ ip_address = '127.0.0.1';
 remote_port = 15000;
 MaxTimeout = 1000; 
 Timer = 0;
-MaxDist = 3;
+MaxDist = 5;
 MaxRecordSize = 100;
 
 t = tcpip(ip_address,remote_port);%Initiate TCP connection
@@ -42,6 +42,7 @@ guiH.pct = scatter3(0, 0, 0, 'b.');
 guiH.roit = scatter3(0, 0, 0, 'g');
 guiH.scanLine = scatter3(0, 0, 0, 'r');
 xlabel('x'); ylabel('y'); zlabel('z');
+axis([-1 1 -1 1 -0.5 0.5]);
 title('transformed pts');
 view(90, 0);
 
@@ -49,7 +50,7 @@ fig3 = figure(3); hold on; axis equal
 guiH.DepthScan = scatter(0,0,25,[0 0 0]);   %Depth map at horizon scatterplot handle
 guiH.Marker = scatter(0,0,'r*');  %Object of interest marker overlay Handle
 set(fig3, 'position', [30 30 800 800])
-axis([0 1 -0.4 0.4]);
+axis([0 4 -2 2]);
 title('scan of middle row');
 xlabel('x'); ylabel('y');
 
@@ -64,6 +65,10 @@ while t.BytesAvailable == 0 %Wait for incoming bytes
 end
 
 disp('Connected to server');
+figure(5);
+guiH.og = surf(zeros(60));
+og = OccupancyGrid(3, 3, 0.05);
+xlabel('x'); ylabel('y'); zlabel('z');
 
 while ((Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0))         
     if(t.BytesAvailable > 0)    %if connected
@@ -98,18 +103,23 @@ while ((Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0))
     
     pc = [x'; y'; z'];
     roi = camROI(pc);
+    set(guiH.Vertices, 'xdata', x, 'ydata', y, 'zdata', z);
+
     if numel(roi) < 20*3
-        pause(0.01);
-        disp('not enough pts');
+        pause(0.1);
+        disp(strcat('not enough pts', num2str(rand())));
+        set(guiH.normalLine, 'xdata', 0, 'ydata', 0, 'zdata', 0);
+        set(guiH.roi, 'xdata', 0, 'ydata', 0, 'zdata', 0);
+
         continue
     end
     [~, n, ~] = getOrientation(roi);
     pct = cloudTransform(pc, n);
     roit = cloudTransform(roi, n);
     sl = getScanLine(pct, 0.005);
+%     sl(2 , :) = sl(2, :) + size(og.Grid, 2) / 2;%temporary, delete after localisation is done
 
     % plotting and transformation of live camera data:
-    set(guiH.Vertices, 'xdata', x, 'ydata', y, 'zdata', z);
     OOIs = ExtractOOIs_cam(sl(1, :), sl(2, :), guiH.DepthScan);
 %     set(guiH.DepthScan, 'xdata', OOIs.centers.x, 'ydata', OOIs.centers.y);
 
@@ -126,7 +136,9 @@ while ((Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0))
     set(guiH.roit, 'xdata', roit(1, :), 'ydata', roit(2, :), 'zdata', roit(3, :))
 %     scatter3(roit(1, :), roit(2, :), roit(3, :), 'r*');
  
-    
+    og.addObservations(sl(1, :), sl(2, :));
+    og.visualise(guiH.og);
+    og.decrement();
     %%
 
     pause(0.1);    %~10ms delay
