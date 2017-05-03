@@ -12,6 +12,7 @@ MaxRecordSize = 100;
 
 t = tcpip(ip_address,remote_port);%Initiate TCP connection
 t.ByteOrder = 'littleEndian';%Set Endian to convert
+set(t,'InputBufferSize', width*height*3*2);
 
 fopen(t);
 pause(1)
@@ -23,7 +24,9 @@ close all;
 % caxis([0 1]);
 % axis([0 160 0 120]);
 
-figure(2); hold on;zoom on ; grid on; axis equal;
+ figure(2); 
+% subplot(1, 2, 1)
+hold on;zoom on ; grid on; axis equal;
 guiH.Vertices = plot3(0,0,0,'.');
 guiH.roi = scatter3(0, 0, 0, 'g');
 guiH.normalLine = plot3(0, 0, 0, 'r');
@@ -32,13 +35,9 @@ title('untransformed point cloud data');
 axis([0 1 -0.7 0.7 -0.7 0.7]);
 view(225, 15);
 
-
-figure(3); hold on;
-guiH.DepthScan = plot(0,0,'b.');   %Depth map at horizon scatterplot handle
-guiH.Marker = plot(0,0,'g.','MarkerSize',20);  %Object of interest marker overlay Handle
-title('scan of middle row');
-
-figure(4); hold on; axis equal; zoom on;grid on;
+figure(4); 
+% subplot(1, 2, 2)
+hold on; axis equal; zoom on;grid on;
 guiH.pct = scatter3(0, 0, 0, 'b.');
 guiH.roit = scatter3(0, 0, 0, 'g');
 guiH.scanLine = scatter3(0, 0, 0, 'r');
@@ -46,8 +45,18 @@ xlabel('x'); ylabel('y'); zlabel('z');
 title('transformed pts');
 view(90, 0);
 
-rosbagXYZ = repmat(struct('x', [], 'y', [], 'z', []),1,150);
-rosbagFrame = 0;
+fig3 = figure(3); hold on; axis equal
+guiH.DepthScan = scatter(0,0,25,[0 0 0]);   %Depth map at horizon scatterplot handle
+guiH.Marker = scatter(0,0,'r*');  %Object of interest marker overlay Handle
+set(fig3, 'position', [30 30 800 800])
+axis([0 1 -0.4 0.4]);
+title('scan of middle row');
+xlabel('x'); ylabel('y');
+
+
+
+recordedData = zeros(3, 19200, 200);
+idx = 1;
 
 while t.BytesAvailable == 0 %Wait for incoming bytes
     pause(1)
@@ -63,24 +72,26 @@ while ((Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0))
     
     buff = fread(t, height*width*3, 'int16');
     Timer = Timer + 1;
-    rosbagFrame = rosbagFrame + 1;
     
     y = buff(1:19200);%Y X Z
     z = buff(19201:38400);
     x = buff(38401:57600);
     
+    
+    %uncomment to record some camera data:
+%     recordedData(1, :, idx) = x;
+%     recordedData(2, :, idx) = y;
+%     recordedData(3, :, idx) = z;
+%     idx = idx + 1;
+%     if idx == length(recordedData(1, 1, :))
+%         break;
+%     end
+    
     x = x/1000; y = y/1000; z = z/1000;  %Convert from mm to m
     x(x < 0) = -10;    %Negative depths to be disregarded
     
     %why does the below line cause the data to go bananas?
-       x(x > MaxDist) = -10;   %Value for depth too far away disregarded
-%     
-%     %plot depthmap before bad points are removed
-%     DepthMap = reshape(z,[160,120]);
-%     %flip image upside down and rotate 90 deg
-%     DepthMap = flipud(DepthMap');   
-% %     set(guiH.DepthVisualisation, 'CData', DepthMap);
-%     
+    x(x > MaxDist) = -10;   %Value for depth too far away disregarded
     y = y(x ~= -10);
     z = z(x ~= -10);
     x = x(x ~= -10);
@@ -97,12 +108,11 @@ while ((Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0))
     roit = cloudTransform(roi, n);
     sl = getScanLine(pct, 0.005);
 
-    % plotting and transformation of live camera data:    
+    % plotting and transformation of live camera data:
     set(guiH.Vertices, 'xdata', x, 'ydata', y, 'zdata', z);
-    xScan = x(y==0);
-    zScan = z(y==0);
-    set(guiH.DepthScan, 'xdata', sl(1, :), 'ydata', sl(2, :));
-%     PlotOOIs(OOIs, guiH.Marker);
+    OOIs = ExtractOOIs_cam(sl(1, :), sl(2, :), guiH.DepthScan);
+%     set(guiH.DepthScan, 'xdata', OOIs.centers.x, 'ydata', OOIs.centers.y);
+
 
     set(guiH.scanLine, 'xdata', sl(1, :), 'ydata', sl(2, :), 'zdata', sl(3, :));
     %create a line to visualise n:
@@ -118,14 +128,7 @@ while ((Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0))
  
     
     %%
-    %record a rosbag
-%     if (rosbagFrame < MaxRecordSize)
-%         rosbagXYZ(rosbagFrame).x = x;
-%         rosbagXYZ(rosbagFrame).y = y;
-%         rosbagXYZ(rosbagFrame).z = z;
-%     else 
-%         disp('Rosbag Full');
-%     end
+
     pause(0.1);    %~10ms delay
 end
 
