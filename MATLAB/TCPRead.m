@@ -7,7 +7,7 @@ ip_address = '127.0.0.1';
 remote_port = 15000;
 MaxTimeout = 1000; 
 Timer = 0;
-MaxDist = 3;
+MaxDist = 5;
 MaxRecordSize = 100;
 
 t = tcpip(ip_address,remote_port);%Initiate TCP connection
@@ -42,6 +42,7 @@ guiH.pct = scatter3(0, 0, 0, 'b.');
 guiH.roit = scatter3(0, 0, 0, 'g');
 guiH.scanLine = scatter3(0, 0, 0, 'r');
 xlabel('x'); ylabel('y'); zlabel('z');
+axis([-1 1 -1 1 -0.5 0.5]);
 title('transformed pts');
 view(90, 0);
 
@@ -49,7 +50,7 @@ fig3 = figure(3); hold on; axis equal
 guiH.DepthScan = scatter(0,0,25,[0 0 0]);   %Depth map at horizon scatterplot handle
 guiH.Marker = scatter(0,0,'r*');  %Object of interest marker overlay Handle
 set(fig3, 'position', [30 30 800 800])
-axis([0 1 -0.4 0.4]);
+axis([0 4 -2 2]);
 title('scan of middle row');
 xlabel('x'); ylabel('y');
 
@@ -79,13 +80,13 @@ while ((Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0))
     
     
     %uncomment to record some camera data:
-%     recordedData(1, :, idx) = x;
-%     recordedData(2, :, idx) = y;
-%     recordedData(3, :, idx) = z;
-%     idx = idx + 1;
-%     if idx == length(recordedData(1, 1, :))
-%         break;
-%     end
+    recordedData(1, :, idx) = x;
+    recordedData(2, :, idx) = y;
+    recordedData(3, :, idx) = z;
+    idx = idx + 1;
+    if idx == length(recordedData(1, 1, :))
+        break;
+    end
     
     x = x/1000; y = y/1000; z = z/1000;  %Convert from mm to m
     x(x < 0) = -10;    %Negative depths to be disregarded
