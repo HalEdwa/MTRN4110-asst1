@@ -48,7 +48,7 @@ landmarky = [0.5 0.5 0.5 1   1   1   1.5];
 
 %i = 39 breaks the fitting tool for some reason
 for i = 52:99 %i=31 is a frams with no bad points
-    
+    pause(0.5);
     x = recordedData(1, :, i);
     y = recordedData(2, :, i);
     z = recordedData(3, :, i);
@@ -100,14 +100,9 @@ for i = 52:99 %i=31 is a frams with no bad points
     set(guiH.roi, 'xdata', roi(1, :), 'ydata', roi(2, :), 'zdata', roi(3, :));
     set(guiH.roit, 'xdata', roit(1, :), 'ydata', roit(2, :), 'zdata', roit(3, :))
  
-    pause
-    if get(gcf,'currentchar')~=' '
-        break;
-    end
-    
-    
-    
-    
+%     if get(gcf,'currentchar')~=' '
+%         break;
+%     end
 end
 
 %% generated randomly:

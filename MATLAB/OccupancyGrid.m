@@ -65,6 +65,15 @@ classdef OccupancyGrid<handle
             end
         end
         
+        function OOIs = FindOOIs(obj)
+            Threshold = 400;
+
+            [OOIs.centers.x, OOIs.centers.y] = find(obj.Grid > Threshold);
+
+            OOIs.centers.x = OOIs.centers.x * obj.Resolution; 
+            OOIs.centers.y = OOIs.centers.y * obj.Resolution; 
+            OOIs.N = numel(OOIs.centers.x);
+        end
     end
     
 end
