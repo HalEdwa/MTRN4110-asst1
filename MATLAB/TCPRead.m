@@ -5,6 +5,7 @@ function TCPRead()
     
     height = 120;%received image dimensions
     width = 160;
+    Live = 0;
 
     ip_address = '127.0.0.1';
     remote_port = 15000;
@@ -13,13 +14,15 @@ function TCPRead()
     MaxDist = 5;
     MaxRecordSize = 100;
 
-    t = tcpip(ip_address,remote_port);%Initiate TCP connection
-    t.ByteOrder = 'littleEndian';%Set Endian to convert
-    set(t,'InputBufferSize', width*height*3*2);
+    if (Live == 1)
+        t = tcpip(ip_address,remote_port);%Initiate TCP connection
+        t.ByteOrder = 'littleEndian';%Set Endian to convert
+        set(t,'InputBufferSize', width*height*3*2);
 
-    fopen(t);
+        fopen(t);
+    end
+    
     pause(1)
-
     close all;
     
     figure(1); hold on;
@@ -57,44 +60,59 @@ function TCPRead()
     axis([0 4 -2 2]);
     title('scan of horizon');
     xlabel('x'); ylabel('y');
-
+    
+    figure(6); hold on; axis equal
+    GlobalMap.Landmarks = plot(0,0,'r*');   %Depth map at horizon scatterplot handle
+    title('Global Map');
+    xlabel('x'); ylabel('y');
+    
     %recordedData = zeros(3, 19200, 200);   % Turn on if recording
     
     idx = 1;
 
-    while t.BytesAvailable == 0 %Wait for incoming bytes
-        pause(1)
-        disp('waiting for initial bytes...');
+    if (Live == 1)
+        while t.BytesAvailable == 0 %Wait for incoming bytes
+            pause(1)
+            disp('waiting for initial bytes...');
+        end
     end
-
+    
     disp('Connected to server');
     figure(5);
     guiH.og = surf(zeros(60));
     og = OccupancyGrid(3, 3, 0.05);
     xlabel('x'); ylabel('y'); zlabel('z');
 
-    X = [0;0;0];    % Vehicle Pose
-    iteration = 1;
+    X = [0;0;pi/2];    % Vehicle Pose
     
-    while ((Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0))         
-        if(t.BytesAvailable > 0)    %if connected
-            Timer = 0; %reset timer
+    if (Live == 1)
+        RunCondition = (Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0);
+    else
+        RunCondition = 1;
+        iteration = 1;
+    end
+    
+    while (RunCondition)
+        if (Live == 1)
+            if(t.BytesAvailable > 0)    %if connected
+                Timer = 0; %reset timer
+            end
+
+            buff = fread(t, height*width*3, 'int16');
+            Timer = Timer + 1;
+        
+            %Live Data
+            y = buff(1:19200);%Y X Z
+            z = buff(19201:38400);
+            x = buff(38401:57600);
+        else
+            %Play recorded data
+            y = (recordedData(2,:,iteration))';
+            z = (recordedData(3,:,iteration))';
+            x = (recordedData(1,:,iteration))';
+        
+            iteration = iteration + 1;
         end
-
-        buff = fread(t, height*width*3, 'int16');
-        Timer = Timer + 1;
-
-        %Live Data
-%         y = buff(1:19200);%Y X Z
-%         z = buff(19201:38400);
-%         x = buff(38401:57600);
-        
-        %Play recorded data
-        y = (recordedData(2,:,iteration))';
-        z = (recordedData(3,:,iteration))';
-        x = (recordedData(1,:,iteration))';
-        
-        iteration = iteration + 1;
         
         %uncomment to record some camera data:
     %     recordedData(1, :, idx) = x;
@@ -122,7 +140,12 @@ function TCPRead()
         z = z(x ~= -10);
         x = x(x ~= -10);
         
-        pc = [x'; y'; z'];
+        if (Live == 1)
+            pc = [x; y; z];
+        else
+            pc = [x'; y'; z'];
+        end
+        
         roi = camROI(pc);
         
         set(guiH.Vertices, 'xdata', x, 'ydata', y, 'zdata', z);
@@ -141,12 +164,9 @@ function TCPRead()
         pct = cloudTransform(pc, n);
         roit = cloudTransform(roi, n);
         sl = getScanLine(pct, 0.005);
-    %     sl(2 , :) = sl(2, :) + size(og.Grid, 2) / 2;%temporary, delete after localisation is done
-
-        % plotting and transformation of live camera data:
-        OOIs = ExtractOOIs_cam(sl(1, :), sl(2, :), guiH.DepthScan);
-        %set(guiH.DepthScan, 'xdata', OOIs.centers.x, 'ydata', OOIs.centers.y);
-        set(guiH.scanLine, 'xdata', sl(1, :), 'ydata', sl(2, :), 'zdata', sl(3, :));
+        
+        % Plot Local frame depth camera scan data and transform
+        ExtractOOIs_cam(sl(1, :), sl(2, :), guiH.DepthScan);
         
         %create a line to visualise n:
         nLine = [roi(:, 1), roi(:, 1) + n'*0.2/(norm(n))];
@@ -158,38 +178,68 @@ function TCPRead()
         set(guiH.roi, 'xdata', roi(1, :), 'ydata', roi(2, :), 'zdata', roi(3, :));
         set(guiH.roit, 'xdata', roit(1, :), 'ydata', roit(2, :), 'zdata', roit(3, :))
     %     scatter3(roit(1, :), roit(2, :), roit(3, :), 'r*');
+   
+        %transform sl according to position before adding observations
+        % Form rotation matrixes
+        theta = X(3) - pi/2;
+        rotationMatrix = [cos(theta), -sin(theta); sin(theta), cos(theta)];
 
-        og.addObservations(sl(1, :), sl(2, :));
+        % Apply rotation matrix to align data with heading
+        V = rotationMatrix*[sl(1, :); sl(2, :)];
+        xVals = V(1,:);
+        yVals = V(2,:) + X(2);
+        
+        xVals = xVals + X(1);
+        yVals = yVals + X(2);
+        
+        %set(guiH.scanLine, 'xdata', sl(1, :), 'ydata', sl(2, :), 'zdata', sl(3, :));
+        set(guiH.scanLine, 'xdata', xVals, 'ydata', yVals, 'zdata', sl(3, :));
+        
+        og.addObservations(xVals, yVals);
+        %og.addObservations(sl(1, :), sl(2, :));
         og.visualise(guiH.og);
         og.decrement();
         
-        OOIs = og.FindOOIs()
-
-        X = Localise(OOIs, X);
+        OOIs = og.FindOOIs();
+        
+        %Global Frame Plot of Vehicle and Landmarks
+        set(GlobalMap.Landmarks, 'xdata', OOIs.centers.x(:), 'ydata', OOIs.centers.y(:));
+        
+        X = Localise(OOIs, X)  %update pose based on "known" locations of OOIS
+        
         %%
-
-        pause(0.1);    %~10ms delay
+        
+        if (Live == 0)
+            RunCondition = (Timer < MaxTimeout) || (get(t, 'BytesAvailable') > 0);
+            pause(0.2);    %~200ms delay
+        end
     end
 
     %program end
-    pause(1)
-    fclose(t);
-    delete(t);
-    clear t
+    if (Live == 0)
+        pause(1)
+        fclose(t);
+        delete(t);
+        clear t
+    end
 end
 
 function X = Localise(OOIs, X_Last)
+        % Transform by heading
         Landmarks.x = OOIs.centers.x + X_Last(1);    % Global x of landmark
         Landmarks.y = OOIs.centers.y + X_Last(2);    % Global y of landmark
         Landmarks.n = OOIs.N;  % Number of landmarks
         
         for i = 1:OOIs.N
-            Landmarks.r(i) = sqrt(OOIs.centers.y(i) * OOIs.centers.y(i) + OOIs.centers.x(i) * OOIs.centers.x(i)); % Local Range
-            Landmarks.theta(i) = pi + atan2(OOIs.centers.y(i),OOIs.centers.x(i));   % Local Azimuth Bearing
+            Landmarks.r(i) = sqrt(OOIs.centers.y(i).^2 + OOIs.centers.x(i).^2); % Local Range
+            
+            Landmarks.theta(i) = pi/2 + atan2(OOIs.centers.y(i),OOIs.centers.x(i));   % Local Azimuth Bearing
         end
         
+        options = optimset('MaxFunEvals',1000);
+        
         if (Landmarks.n > 1)   %Triangulate and localise
-            X = fminsearch(@(X) Triangulate(X,Landmarks),[X_Last(1),X_Last(2),X_Last(3)]); % Triangulate and return x, y, phi
+            X = fminsearch(@(X) Triangulate(X,Landmarks),[X_Last(1),X_Last(2),X_Last(3)], options); % Triangulate and return x, y, phi
         else
             X = X_Last;
         end
