@@ -5,7 +5,7 @@ function TCPRead()
     
     height = 120;%received image dimensions
     width = 160;
-    Live = 0;
+    Live = 1;
 
     ip_address = '127.0.0.1';
     remote_port = 15000;

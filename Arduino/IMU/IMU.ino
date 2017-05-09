@@ -37,7 +37,7 @@ void loop() {
   time = millis();
   //printRawValues();
 
-  delay(10);
+  delay(5);
 }
 
 void printRawValues() {

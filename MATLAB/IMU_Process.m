@@ -1,10 +1,13 @@
 function IMU_Process()
     % Create TCP/IP object 't'. Specify server machine and port number.
-    t = tcpip('127.0.0.1', 15000);
+    t = tcpip('127.0.0.1', 14500);
     t.ByteOrder = 'littleEndian';%Set Endian to convert
      
     % Open connection to the server. 
     fopen(t);   pause(1); 
+    
+
+    
     
     %Set up plot handles
     figure(1); clf(); hold on;
@@ -118,7 +121,7 @@ function NewAttitude = ProcessAttitude_Gyros(gyros, dt, CurrentAttitude)
         pitch = p + dt*(wy*cos(r) - wz*sin(r));
         yaw = y + dt*((wy*sin(r) + wz*cos(r))/cos(p));
 
-        NewAttitude = [roll, pitch, yaw]; %new global Roll, Pitch, Yaw (at time t+dt)
+        NewAttitude = [roll, pitch, yaw] %new global Roll, Pitch, Yaw (at time t+dt)
 %     else
 %         NewAttitude = CurrentAttitude;
 %     end

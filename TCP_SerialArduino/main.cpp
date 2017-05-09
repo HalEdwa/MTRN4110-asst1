@@ -17,7 +17,7 @@
 
 /*Socket Define and Global====================*/
 #define DEFAULT_BUFLEN 512
-#define DEFAULT_PORT "15000"
+#define DEFAULT_PORT "14500" //was 15000
 
 WSADATA wsaData;
 int iResult;
@@ -122,7 +122,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	TCP_ServerConfig();
 	int counter = 0;
-	int freq = 50;
+	int freq = 30;
 
 	while (SP->IsConnected())
 	{
