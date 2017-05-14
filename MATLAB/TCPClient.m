@@ -14,7 +14,7 @@ function TCPRead()
     % Camera Variables
     width = 160;
     height = 120;
-    Live = 0;
+    Live = 1;
     CameraRead = 0;
     
     % IMU Variables
@@ -43,26 +43,33 @@ function TCPRead()
     caxis([0 1500]);
     axis([0 160 0 120]);
     
-    % 3D vertices plot
+    % 3D vertices plot raw
     figure(2); clf(); hold on; rotate3d on; 
     guiH.PointCloud = plot3(0,0,0,'.','MarkerSize',2.5);
-    guiH.FloorNormal = quiver3(0, 0, 0, 0, 0, 0, 500 );
+    guiH.FloorNormal = quiver3(0, 0, 0, 0, 0, 0, 500);
+    guiH.PointCloud_Title = title('');
     xlabel('x'); ylabel('y'); zlabel('z');
     axis([0 1500 -600 600 -400 600]);
-    %axis ij
-    title('3D Vertices Plot');
+    grid on;
+    
+    % 3D vertices plot transformed
+    figure(3); clf(); hold on; rotate3d on; 
+    guiH.PointCloudT = plot3(0,0,0,'.','MarkerSize',2.5);
+    xlabel('x'); ylabel('y'); zlabel('z');
+    axis([0 1500 -600 600 -400 600]);
+    title('3D Vertices Plot Transformed');
     grid on;
     
     % Local Frame plot of Depth Scans
-    figure(3); clf(); hold on;
+    figure(4); clf(); hold on;
     LocalMap.ScanData = plot(0,0,'.');   %Depth map at horizon scatterplot handle
     LocalMap.OOIs = plot(0,0,'o','MarkerFaceColor', 'r');  %Object of interest marker overlay Handle
-    axis([0 1 -1 1]);
+    axis([-1 1 0 1.5]);
     title('DepthMap Scan at height = 0');
-    xlabel('x'); ylabel('y');
+    xlabel('y'); ylabel('x');
     
     % Global Frame plot
-    figure(4); clf(); hold on; axis equal
+    figure(5); clf(); hold on; axis equal
     GlobalMap.DepthScan = plot(0,0,'b.');
     GlobalMap.Localisation = plot(0,0,'r');
     GlobalMap.CurrentPos = plot(0,0,'black.','markersize',7);
@@ -73,9 +80,9 @@ function TCPRead()
     GlobalMap.LandmarksMap = plot(0,0,'cyan.','markersize',15);   %Depth map at horizon scatterplot handle
     axis([-2 2 -0.2 3.5]);
     title('Global Map');
-    xlabel('x'); ylabel('y');
+    xlabel('y'); ylabel('x');
     
-    figure(5);
+    figure(6);
     guiH.og = surf(zeros(60));
     og = OccupancyGrid(3, 3, 0.05);
     title('Occupancy Grid');
@@ -230,32 +237,39 @@ function TCPRead()
         %----------------------------------------------------------------------
         
         if (Live == 0 || ((Live == 1) && CameraRead == 1))
-            x(x > 1500) = 0;    % Filter out depths that are too far
-            x(x < 0) = 0;   % Filter out negative depths
+            xFilter = x;  % Save all depth values
+            xFilter(xFilter > 1500) = -1;    % Flag depths that are too far
+            xFilter(xFilter < 0) = -1;   % Flag negative depths
+
+            % Filter out invalid data
+            xx = x(xFilter ~= -1);
+            yy = y(xFilter ~= -1);
+            zz = z(xFilter ~= -1);
             
-            % Process incoming camera frame
-            [xx,yy,zz] = ProcessCameraFrame(x,y,z); % Filter and transform camera data
+            % Transform camera data into image
+            DepthMap = GetDepthMap(x);
+            
+            % Process Camera data
             [roi_x, roi_y, roi_z] = ProcessROI(xx,yy,zz);  % Selects region of interest and transforms dataset
             [Pitch, Roll, Normal] = CalculateAttitude(roi_x, roi_y, roi_z); % Estimate Pitch and Roll
-            [xT,yT,zT] = TransformCamera(Pitch,Roll,x,y,z); %Transform data such that floor is flat
-            DepthScan = ScanPlane(xT/1000,yT/1000);    % Extract a depth scan along the horizon and convert mm to m
+            [xT,yT,zT] = TransformCamera(Pitch,Roll,xx,yy,zz); %Transform data such that floor is flat
+            DepthScan = ScanPlane(xT/1000,yT/1000,zT/1000);    % Extract a depth scan along the horizon and convert mm to m
             
-            set(guiH.Image,'CData',xx); % Plot DepthMap as an image
-            set(guiH.PointCloud,'xdata',xT,'ydata',yT,'zdata',zT);  % Plot transformed point cloud
-            % Plot normal, projected from transformed point cloud at approximate center of data
+            set(guiH.Image,'CData',DepthMap); % Plot DepthMap as an image
+            set(guiH.PointCloud,'xdata',x,'ydata',y,'zdata',z);  % Plot raw point cloud
+            % Plot normal vector estimated from raw point cloud
             set(guiH.FloorNormal,'xdata',mean(roi_x(:)),'ydata',mean(roi_y(:)),'zdata',mean(roi_z(:)),'udata',Normal(1),'vdata',Normal(2),'wdata', Normal(3));
+            s = sprintf('3D Point Cloud Raw: Pitch = %3f Roll = %3f', Pitch, Roll); % Plot title with pitch and roll
+            set(guiH.PointCloud_Title, 'string', s);
+            set(guiH.PointCloudT,'xdata',xT,'ydata',yT,'zdata',zT);
             
             % Perform object classification from camera data 
-            OOIs = ExtractOOIs(DepthScan,LocalMap);  % Capture pole like objects as OOIs
+            OOIs = FindOOIs(DepthScan,LocalMap);    % Capture pole like objects as OOIs
             [GlobalOOIs, GlobalDepthScan] = TransformToGlobal(OOIs, DepthScan, X);   % Rotate and translate data by X
-            AssociateLandmarks(GlobalOOIs, LandmarkMap);    % Update DA_Landmarks
+            AssociateLandmarks(GlobalOOIs, LandmarkMap, GlobalMap.DA_Labels);    % Update DA_Landmarks
             
             set(GlobalMap.DepthScan,'xdata',GlobalDepthScan.x,'ydata',GlobalDepthScan.y);
             set(GlobalMap.Landmarks,'xdata',GlobalOOIs.x,'ydata',GlobalOOIs.y);
-            
-            if DA_Landmarks.N > 0
-                delete(GlobalMap.DA_Labels); % Delete labels every plot
-            end
             
             CameraRead = 0; % Reset read flag
             
@@ -282,9 +296,7 @@ function TCPRead()
             og.decrement();
         end
         
-        if(Live == 0)
-           pause(0.3);
-        end
+        pause(0.0001);   % Short pause to allow rotation inputs for plotting
     end
 
     %-------------------------------------------------------------------------
@@ -294,7 +306,7 @@ function TCPRead()
     disp('Closing Connections to Servers');
     
     % Close and clear connection to IMU
-    pause(1)
+    pause(1);
     fclose(p); 
     delete(p);
     clear p
@@ -312,42 +324,37 @@ end
 % Camera Functions
 %-------------------------------------------------------------------------
 
-function [xx,yy,zz] = ProcessCameraFrame(x,y,z);
-    xx = flipud(reshape(x,[160,120])');
-    yy = flipud(reshape(y,[160,120])');
-    zz = flipud(reshape(z,[160,120])');
+function DepthMap = GetDepthMap(x)
+    DepthMap = flipud(reshape(x,[160,120])');
 end
 
 function [roi_x, roi_y, roi_z] = ProcessROI(xx,yy,zz)
-    % 40 rows, 81 cols Middle section of first third closest rows
-    roi_y= yy(1:30, 40:120)';
-    roi_z= zz(1:30, 40:120)'; 
-    roi_x= xx(1:30, 40:120)';
+    % Parameters for ROI conditions (millimeters)
+    xSize = 400;
+    ySize = 400;
+    xOffset = 100;
+    
+    % Set conditions for points to be within ROI
+    minX = min(xx);
+    xCrit = (xx > (minX + xOffset)) & (xx < (minX + xOffset + xSize));
+    yCrit = (yy > -ySize/2) & (yy < ySize/2);
+    roi_condition = xCrit & yCrit;
+    
+    % Apply conditions and save ROI points
+    roi_x = xx(roi_condition);
+    roi_y = yy(roi_condition);
+    roi_z = zz(roi_condition);
 end
 
 function [Pitch, Roll, Normal] = CalculateAttitude(roi_x, roi_y, roi_z)
-%     temp = [roi_x,  roi_y ones(size(roi_x))];   
-%     
-%     p = temp\roi_z;    % Calculate floor plane
-%     n = [-p(1), -p(2), 1];  % Calculate floor normal
-%     
-%     Pitch = atand(n(1)/n(3));
-%     Roll = -atand(n(2)/n(3));
-%     Normal = n;
-
-    [EstimatePlane, ~] = fit([roi_x', roi_y'], roi_z', 'poly11');
-
-    %plane: a*x + b*y + c*z = d
-    a = EstimatePlane.p10;
-    b = EstimatePlane.p01;
-    c = 1;
-    d = EstimatePlate.p00;
-
-    n = [a, b, -c];
+    temp = [roi_x,  roi_y ones(size(roi_x))];
     
+    p = temp\roi_z;    % Calculate floor plane
+    n = [-p(1), -p(2),1];  % Calculate floor normal
+    
+    Pitch = -atand(n(1) / n(3));
+    Roll = atand(n(2) / n(3));
     Normal = n / norm(n);
-    Pitch = asind(n(1));
-    Roll = asind(-n(2)/cos(Pitch));
 end
 
 function [xT,yT,zT] = TransformCamera(Pitch,Roll,x,y,z)
@@ -359,38 +366,33 @@ function [xT,yT,zT] = TransformCamera(Pitch,Roll,x,y,z)
           0, 1, 0;
           -sind(Pitch), 0, cosd(Pitch)];  % Generate pitch rotation matrix
     
-    rotatedCoords = Rx * [x'; y'; z'];  % Appply roll transformation
+    rotatedCoords = Rx * [x'; y'; z'];  % Apply roll transformation
     rotatedCoords = Ry * [rotatedCoords(1,:); rotatedCoords(2,:); rotatedCoords(3,:)];  % Apply pitch transformation
     
+    % Save transformed point cloud
     xT = rotatedCoords(1,:);
     yT = rotatedCoords(2,:);
     zT = rotatedCoords(3,:);
+    
+    % Attempt to offset floor to z = 0 position
+    zOffset = min(zT(zT > -200));
+    zT = zT - zOffset;
 end
 
-function DepthScan = ScanPlane(xT,yT)
-    xT = flipud(reshape(xT,[160,120])');
-    yT = flipud(reshape(yT,[160,120])');
+function DepthScan = ScanPlane(xT,yT,zT)    
+    roi = find((zT > 0.1)&(zT < 0.2));
     
-    DepthScan(1,:) = xT(65,:);
-    DepthScan(2,:) = yT(65,:);
+    DepthScan(1,:) = xT(roi);
+    DepthScan(2,:) = yT(roi);
 end
 
 %-------------------------------------------------------------------------
 % Classification and Data Association
 %-------------------------------------------------------------------------
 
-function r = ExtractOOIs(DepthScan,h)
+function OOIs = FindOOIs(DepthScan,h)
     x = DepthScan(1,:);
     y = DepthScan(2,:);
-
-    r.N = 0;
-    r.centers.x = [];
-    r.centers.y = [];
-    r.Sizes   = [];
-    
-    if numel(x) + numel(y) == 0
-        return;
-    end
     
     %since the data contains several scan lines, it is no longer an ordered
     %dataset. Fix this by converting to polar form, ordering based on
@@ -402,90 +404,35 @@ function r = ExtractOOIs(DepthScan,h)
     x = ranges .* cos(theta);
     y = ranges .* sin(theta);
     
-    % Classifier parameters
-    poleDia = 0.1;     % Expected diameter of OOI
-    poleDiaTol = 0.1;  % Percentage of deviation allowed on OOI dia
-    filterSize = 0.15;   % Distance between points to be grouped as a cluster
-    minClusterSize = 3;
+    OOIs.N = 0;
+    OOIs.centers.x = [];
+    OOIs.centers.y = [];
     
-    clusterEndPts = [1];%have to initialise
-    hues = zeros(1, length(x));
-    newHue = 0.3;
-    purple = 213/255;
+    MinPoleDia = 0.03;
+    MaxPoleDia = 0.75;
+    MinPoints = 10;
+    ClusterDist = 0.025;
     
-    %find all clusters of points:
-    for i = 2:length(x) - 1
-        
-        if (x(i) - x(i-1))^2 + (y(i) - y(i - 1))^2 > filterSize^2
-            newHue = mod(newHue + 0.73, 1);
-            
-            %filter yellow because its hard to see and purple because it's 
-            %reserved:
-            while (newHue(1) > 90/255 && newHue(1) < 30/255 ) || (newHue(1) > 200/255 && newHue(1) < 230/255)
-                newHue = mod(newHue + 0.73, 1);
-            end
+    iStart = 1;
+    iEnd = 1;
+    
+    for i = 2:(length(x)-1)
+      if (sqrt((x(i)-x(i-1))^2 + (y(i)-y(i-1))^2)) < ClusterDist
+         iEnd = i-1;
+      else
+         dist = sqrt((x(iStart)-x(iEnd))^2 + (y(iStart)-y(iEnd))^2);
 
-            if (x(i) - x(i+1))^2 + (y(i) - y(i+1))^2 > filterSize^2
-                clusterEndPts = [clusterEndPts, i - 1, i + 1];
-                hues(:, i) = 0;%pts not in a cluster are black
-                i = i + 1;
-            else 
-                clusterEndPts = [clusterEndPts, i - 1, i];
-            end
-        end
-        hues(:, i) = newHue;
-    end
-
-    clusterEndPts = [clusterEndPts, length(x)];
-    
-    %the ends of these clusters tend to have points that have fallen off
-    %the back. Trim the size of the clusters:
-    for i = 1:2:length(clusterEndPts)
-        meanX = mean( x(clusterEndPts(i):clusterEndPts(i+1)) );
-        
-        %trim beginning:
-        while abs(x(clusterEndPts(i)) - meanX) > poleDia*0.6%tolerance is arbitrary
-            hues(clusterEndPts(i)) = 0;
-            clusterEndPts(i) = clusterEndPts(i) + 1;
-            meanX = mean( x(clusterEndPts(i):clusterEndPts(i+1)) );
-        end
-        
-        %trim end:
-        while abs(x(clusterEndPts(i+1)) - meanX) > poleDia*0.6%tolerance is arbitrary
-            hues(clusterEndPts(i+1)) = 0;
-            clusterEndPts(i+1) = clusterEndPts(i+1) - 1;
-            meanX = mean( x(clusterEndPts(i):clusterEndPts(i+1)) );
-        end
+         if ((dist >= MinPoleDia)&&(dist <= MaxPoleDia)&&((iEnd-iStart) >= MinPoints))
+            OOIs.N = OOIs.N + 1;
+            OOIs.centers.x(OOIs.N) = mean(x(iStart:iEnd));
+            OOIs.centers.y(OOIs.N) = mean(y(iStart:iEnd));
+         end
+         iStart = i;
+      end
     end
     
-    for i = 1:2:length(clusterEndPts) - 1
-        %the 3D camera tends to have trailing points on the outside of
-        %clusters. So compare the y distances only to ignore these:
-        objectSize = abs(y(clusterEndPts(i)) - y(clusterEndPts(i+1)));
-        if  (objectSize < (poleDia*(1 + poleDiaTol )))&&( objectSize > (poleDia*(1 - poleDiaTol)))&&(length(hues(clusterEndPts(i):clusterEndPts(i+1))) >= minClusterSize)
-            hues(clusterEndPts(i):clusterEndPts(i+1)) = purple; % Purple points identify clusters with an OOI
-        end
-        
-        r.N = r.N + 1;
-        r.centers.x = [r.centers.x mean(x(clusterEndPts(i):clusterEndPts(i+1)))];
-        r.centers.y = [r.centers.y mean(y(clusterEndPts(i):clusterEndPts(i+1)))];
-        r.Sizes = [r.Sizes pdist( [x(clusterEndPts(i)), y(clusterEndPts(i));
-               x(clusterEndPts(i+1)), y(clusterEndPts(i+1))])];
-    end
-
-    x = x(hues ~= 0);
-    y = y(hues ~= 0);
-    hues = hues(hues ~= 0);
-    vals = ones(1, length(hues));
-    vals(hues ~= purple) = 0.6;
-    
-    if numel(hues) == 0
-        return
-    end
-    
-    colours = hsv2rgb([hues; ones(1, length(hues)); vals]');
-    set(h.ScanData, 'xdata', x, 'ydata', y);%, 'cdata', colours);
-    set(h.OOIs, 'xdata', r.centers.x, 'ydata', r.centers.y);
+    set(h.ScanData, 'xdata', y, 'ydata', x);
+    set(h.OOIs, 'xdata', OOIs.centers.y, 'ydata', OOIs.centers.x);
 end
 
 function [GlobalOOIs,GlobalDepthScan] = TransformToGlobal(OOIs, DepthScan, X)
@@ -507,7 +454,7 @@ function [GlobalOOIs,GlobalDepthScan] = TransformToGlobal(OOIs, DepthScan, X)
     GlobalOOIs.N = OOIs.N;  % Number of landmarks
 end
 
-function AssociateLandmarks(GlobalOOIs, LandmarkMap)
+function AssociateLandmarks(GlobalOOIs, LandmarkMap,gh)
     global DA_Landmarks;
     ID_Tolerance = 0.1;
     
@@ -532,7 +479,10 @@ function AssociateLandmarks(GlobalOOIs, LandmarkMap)
         DA_Landmarks.N = 0; % No data associated landmarks
     end
     
-    pause(0.01);   % Small delay to make sure labels are visible
+    gh.DA_Labels(g) = text(double(10),double(10),int2str(69),'FontSize',8,'Color','g');
+    pause(0.0001);   % Small delay to make sure labels are visible
+    
+    delete(gh.DA_Labels); % Delete labels every plot
 end
 
 %-------------------------------------------------------------------------
