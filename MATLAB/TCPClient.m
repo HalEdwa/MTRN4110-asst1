@@ -204,9 +204,9 @@ function TCPRead()
             IMU_data.Attitude_G(counter + 1,:) = ProcessAttitude_Gyros(IMU_data.Gyros(counter,:), IMU_data.Dt(counter), IMU_data.Attitude_G(counter,:));
             IMU_data.Attitude_A(counter + 1,:) = ProcessAttitude_Accel(IMU_data.Accel(counter,:), IMU_data.Attitude_A(counter,:));
             
-            Plot_IMU(Handles, IMU_data, counter);
+            X(3) = DeadReckoningYaw(IMU_data.Gyros(counter,3), IMU_data.Dt(counter), X(3)); % Update vehicle pose based on gyros
             
-            X(3) = IMU_data.Attitude_G(counter + 1,3);
+            %Plot_IMU(Handles, IMU_data, counter);
             counter = counter + 1;
         end
         
@@ -578,6 +578,18 @@ function F = Triangulate(X, LandmarkMap)
         u = u + 2;
     end
     F = sum(F.^2);
+end
+
+function Yaw = DeadReckoningYaw(Wz, dt, CurrentYaw)
+    wz = gyros(3);  y = CurrentAttitude(3);
+    
+    if (~isnan(wx) && ~isnan(wy) && ~isnan(wz)) % If data is valid
+        Roll = r + dt*(wx + (wy*sin(r) + wz*cos(r))*tan(p)); 
+        Pitch = p + dt*(wy*cos(r) - wz*sin(r));
+        Yaw = y + dt*((wy*sin(r) + wz*cos(r))/cos(p));
+    else
+        Yaw = CurrentYaw;
+    end
 end
 
 %-------------------------------------------------------------------------
