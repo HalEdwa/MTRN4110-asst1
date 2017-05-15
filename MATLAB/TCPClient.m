@@ -20,7 +20,7 @@ function TCPRead()
     % IMU Variables
     Bias.Ax = -0.0175; Bias.Ay = -0.0868; Bias.Az = -1.0134;
     Bias.Gx = -1.8285; Bias.Gy = 2.5944; Bias.Gz = 1.3713;
-    IMU_data = struct('Attitude_G',[0, 0, 0],'Attitude_A',[0, 0],'Accel',[0, 0, 0],'Gyros',[0, 0, 0],'Dt',0,'TimeStamp',0);
+    IMU_data = struct('Attitude_G',[0, 0, pi/2],'Attitude_A',[0, 0],'Accel',[0, 0, 0],'Gyros',[0, 0, 0],'Dt',0,'TimeStamp',0);
     
     % Landmark map Variables
     global DA_Landmarks;
@@ -88,44 +88,44 @@ function TCPRead()
     title('Occupancy Grid');
     xlabel('x'); ylabel('y'); zlabel('z');
     
-%     figure(6); clf(); hold on;
-%     Handles.Wx = plot(0,0,'r');
-%     Handles.Wy = plot(0,0,'g');
-%     Handles.Wz = plot(0,0,'b');
-%     Handles.Title_Gyros = title('');
-%     ylim([-800,800]);
-%     xlabel('Time (Seconds)')
-%     ylabel('Rate of Yaw (Degrees/Sec)')
-%     zoom on; grid on;
-%     
-%     figure(7); clf(); hold on;
-%     Handles.Ax = plot(0,0,'r');
-%     Handles.Ay = plot(0,0,'g');
-%     Handles.Az = plot(0,0,'b');
-%     Handles.Title_Accel = title('');
-%     ylim([-15,15]);
-%     xlabel('Time (Seconds)')
-%     ylabel('Linear Acceleration (M/Sec^2)')
-%     zoom on; grid on;
+    figure(7); clf(); hold on;
+    Handles.Wx = plot(0,0,'r');
+    Handles.Wy = plot(0,0,'g');
+    Handles.Wz = plot(0,0,'b');
+    Handles.Title_Gyros = title('');
+    ylim([-800,800]);
+    xlabel('Time (Seconds)')
+    ylabel('Rate of Yaw (Degrees/Sec)')
+    zoom on; grid on;
     
-%     figure(8); clf(); hold on;
-%     Handles.Roll_G = plot(0,0,'r');
-%     Handles.Pitch_G = plot(0,0,'g');
-%     Handles.Yaw_G = plot(0,0,'b');
-%     Handles.Title_Attitude_G = title('');
-%     ylim([-100, 100]);
-%     xlabel('Time (Seconds)')
-%     ylabel('Attitude (Degrees)')
-%     zoom on; grid on;
-%     
-%     figure(9); clf(); hold on;
-%     Handles.Roll_A = plot(0,0,'r');
-%     Handles.Pitch_A = plot(0,0,'g');
-%     Handles.Title_Attitude_A = title('');
-%     ylim([-100, 100]);
-%     xlabel('Time (Seconds)')
-%     ylabel('Attitude (Degrees)')
-%     zoom on; grid on;
+    figure(8); clf(); hold on;
+    Handles.Ax = plot(0,0,'r');
+    Handles.Ay = plot(0,0,'g');
+    Handles.Az = plot(0,0,'b');
+    Handles.Title_Accel = title('');
+    ylim([-15,15]);
+    xlabel('Time (Seconds)')
+    ylabel('Linear Acceleration (M/Sec^2)')
+    zoom on; grid on;
+    
+    figure(9); clf(); hold on;
+    Handles.Roll_G = plot(0,0,'r');
+    Handles.Pitch_G = plot(0,0,'g');
+    Handles.Yaw_G = plot(0,0,'b');
+    Handles.Title_Attitude_G = title('');
+    ylim([-100, 100]);
+    xlabel('Time (Seconds)')
+    ylabel('Attitude (Degrees)')
+    zoom on; grid on;
+    
+    figure(10); clf(); hold on;
+    Handles.Roll_A = plot(0,0,'r');
+    Handles.Pitch_A = plot(0,0,'g');
+    Handles.Title_Attitude_A = title('');
+    ylim([-100, 100]);
+    xlabel('Time (Seconds)')
+    ylabel('Attitude (Degrees)')
+    zoom on; grid on;
     
     % Plot known Landmark Map on global Frame
     set(GlobalMap.LandmarksMap, 'xdata', LandmarkMap.x(:), 'ydata', LandmarkMap.y(:));
@@ -145,16 +145,16 @@ function TCPRead()
         fopen(t);
     end
     
-    % Connect to IMU server
-%     p = tcpip(ip_address, remote_port_imu);
-%     p.ByteOrder = 'littleEndian';   %Set Endian to convert
-%     fopen(p);   pause(1); 
-%     
+%     Connect to IMU server
+    p = tcpip(ip_address, remote_port_imu);
+    p.ByteOrder = 'littleEndian';   %Set Endian to convert
+    fopen(p);   pause(1); 
+    
     % Wait for incoming bytes from IMU TCP
-%     while p.BytesAvailable == 0
-%         pause(1)
-%         disp('waiting for initial imu bytes...');
-%     end
+    while p.BytesAvailable == 0
+        pause(1)
+        disp('waiting for initial imu bytes...');
+    end
         
     % Wait for incoming bytes from Camera TCP
     if (Live == 1)   
@@ -174,14 +174,14 @@ function TCPRead()
     %-------------------------------------------------------------------------
     % Begin main program loop
     %-------------------------------------------------------------------------
-    
+    counter =1;
     while (true)
         %----------------------------------------------------------------------
         %Receive and save incoming IMU data
         %----------------------------------------------------------------------
         
-        if (false)%get(p, 'BytesAvailable') > 0) 
-            disp('Reading IMU...');
+        if get(p, 'BytesAvailable') > 0 %(false)
+            %disp('Reading IMU...');
  
             IMU = Parse_IMU_Serial(p);   % Read over TCP and save IMU values
             
@@ -206,6 +206,7 @@ function TCPRead()
             
             Plot_IMU(Handles, IMU_data, counter);
             
+            X(3) = IMU_data.Attitude_G(counter + 1,3);
             counter = counter + 1;
         end
         
@@ -221,7 +222,7 @@ function TCPRead()
             
             iteration = iteration + 1;
         elseif (get(t, 'BytesAvailable') > 0)
-            disp("Reading Camera...");
+            %disp("Reading Camera...");
             buff = fread(t, height*width*3, 'int16');
             
             % Read new camera data frame
@@ -296,7 +297,7 @@ function TCPRead()
             og.decrement();
         end
         
-        pause(0.0001);   % Short pause to allow rotation inputs for plotting
+        pause(0.001);   % Short pause to allow rotation inputs for plotting
     end
 
     %-------------------------------------------------------------------------
@@ -333,12 +334,14 @@ function [roi_x, roi_y, roi_z] = ProcessROI(xx,yy,zz)
     xSize = 400;
     ySize = 400;
     xOffset = 100;
+    floorNoise = 100;
     
     % Set conditions for points to be within ROI
     minX = min(xx);
     xCrit = (xx > (minX + xOffset)) & (xx < (minX + xOffset + xSize));
     yCrit = (yy > -ySize/2) & (yy < ySize/2);
-    roi_condition = xCrit & yCrit;
+    zCrit = zz < (min(zz) + floorNoise);
+    roi_condition = xCrit & yCrit & zCrit;
     
     % Apply conditions and save ROI points
     roi_x = xx(roi_condition);
@@ -375,12 +378,12 @@ function [xT,yT,zT] = TransformCamera(Pitch,Roll,x,y,z)
     zT = rotatedCoords(3,:);
     
     % Attempt to offset floor to z = 0 position
-    zOffset = min(zT(zT > -200));
+    zOffset = min(zT(zT > -200)) + 95;
     zT = zT - zOffset;
 end
 
 function DepthScan = ScanPlane(xT,yT,zT)    
-    roi = find((zT > 0.1)&(zT < 0.2));
+    roi = find((zT > 0.15)&(zT < 0.25));
     
     DepthScan(1,:) = xT(roi);
     DepthScan(2,:) = yT(roi);
@@ -408,10 +411,10 @@ function OOIs = FindOOIs(DepthScan,h)
     OOIs.centers.x = [];
     OOIs.centers.y = [];
     
-    MinPoleDia = 0.03;
-    MaxPoleDia = 0.75;
+    MinPoleDia = 0.025;
+    MaxPoleDia = 0.15;
     MinPoints = 10;
-    ClusterDist = 0.025;
+    ClusterDist = 0.3;
     
     iStart = 1;
     iEnd = 1;
@@ -420,15 +423,60 @@ function OOIs = FindOOIs(DepthScan,h)
       if (sqrt((x(i)-x(i-1))^2 + (y(i)-y(i-1))^2)) < ClusterDist
          iEnd = i-1;
       else
+         
          dist = sqrt((x(iStart)-x(iEnd))^2 + (y(iStart)-y(iEnd))^2);
-
+         
          if ((dist >= MinPoleDia)&&(dist <= MaxPoleDia)&&((iEnd-iStart) >= MinPoints))
             OOIs.N = OOIs.N + 1;
             OOIs.centers.x(OOIs.N) = mean(x(iStart:iEnd));
             OOIs.centers.y(OOIs.N) = mean(y(iStart:iEnd));
          end
          iStart = i;
-      end
+      end  
+    end
+    
+    %Average positions of close OOIs
+    ConcatOOIs.N = 0;
+    ConcatOOIs.centers.x = [];
+    ConcatOOIs.centers.y = [];
+    offset = 0;
+    toMean = 0;
+    minGap = 0.12;
+    
+    for i=1:1:OOIs.N-1
+        if sqrt((OOIs.centers.x(i)-OOIs.centers.x(i+1))^2 + (OOIs.centers.y(i)-OOIs.centers.y(i+1))^2)>minGap
+            ConcatOOIs.N = ConcatOOIs.N+1;
+            meanX = [];
+            meanY = [];
+            for q=1:1:toMean+1
+                meanX = [meanX OOIs.centers.x(i-toMean-1+q)];
+                meanY = [meanY OOIs.centers.y(i-toMean-1+q)];
+            end
+            ConcatOOIs.centers.x(i-offset) = mean(meanX) ;
+            ConcatOOIs.centers.y(i-offset) = mean(meanY);
+            toMean = 0;
+        else
+            offset=offset+1;
+            toMean=toMean +1;
+        end
+        
+        if i == OOIs.N-1
+            ConcatOOIs.N = ConcatOOIs.N+1;
+            meanX = [];
+            meanY = [];
+            
+            for q=1:1:toMean+1
+                meanX = [meanX OOIs.centers.x(i+1-toMean-1+q)];
+                meanY = [meanY OOIs.centers.y(i+1-toMean-1+q)];
+            end
+            
+            ConcatOOIs.centers.x(i+1-offset) = mean(meanX) ;
+            ConcatOOIs.centers.y(i+1-offset) = mean(meanY);
+            toMean = 0;
+            OOIs.N = ConcatOOIs.N;
+            OOIs.centers.x = ConcatOOIs.centers.x;
+            OOIs.centers.y = ConcatOOIs.centers.y;
+        end
     end
     
     set(h.ScanData, 'xdata', y, 'ydata', x);
@@ -492,13 +540,18 @@ end
 function X = Localise(X_Last,LandmarkMap)
         global DA_Landmarks;
         
-        options = optimset('MaxFunEvals',1000);
+        %options = optimset('MaxFunEvals',1000);
         
         if (DA_Landmarks.N > 1)   %Triangulate and localise
-            X = fminsearch(@(X) Triangulate(X,LandmarkMap),[X_Last(1),X_Last(2),X_Last(3)], options); % Triangulate and return x, y, phi
+            X = fminsearch(@(X) Triangulate(X,LandmarkMap),[X_Last(1),X_Last(2),X_Last(3)]); % Triangulate and return x, y, phi
         else
             X = X_Last;
         end
+        
+        X(1)
+        X(2)
+        rad2deg(3)
+        X = X_Last;
 end
 
 function F = Triangulate(X, LandmarkMap)
@@ -517,8 +570,8 @@ function F = Triangulate(X, LandmarkMap)
         
         ExpectedRange = sqrt(edx^2 + edy^2);
         MeasuredRange = sqrt(mdx^2 + mdy^2);
-        ExpectedBearing = atan2(edx, edy) + pi/2 - X(3);
-        MeasuredBearing = atan2(mdx, mdy) + pi/2 - X(3);
+        ExpectedBearing = atan2(edy, edx) + pi/2 - X(3);
+        MeasuredBearing = atan2(mdy, mdx) + pi/2 - X(3);
         
         F(u) = MeasuredRange - ExpectedRange; % Range
         F(u + 1) = MeasuredBearing - ExpectedBearing; % Bearing
@@ -571,6 +624,11 @@ function NewAttitude = ProcessAttitude_Gyros(gyros, dt, CurrentAttitude)
     else
         NewAttitude = CurrentAttitude;
     end
+end
+
+function X = YawDeadReckoningYaw(gyros, dt, X)
+    wz = gyros(3);  y = CurrentYaw(3);
+    yaw = y + dt*((wy*sin(r) + wz*cos(r))/cos(p));
 end
 
 function NewAttitude = ProcessAttitude_Accel(accel, CurrentAttitude)
