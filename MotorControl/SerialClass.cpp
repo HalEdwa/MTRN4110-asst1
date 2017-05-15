@@ -38,17 +38,15 @@ Serial::Serial(const char *portName)
 	//We're not yet connected
 	this->connected = false;
 
-	const WCHAR FileFullPath[] = { L"COM4" };
-
 	//Try to connect to the given port throuh CreateFile
-	this->hSerial = CreateFile(FileFullPath,
+	this->hSerial = CreateFile(portName,
 		GENERIC_READ | GENERIC_WRITE,
 		0,
 		NULL,
 		OPEN_EXISTING,
 		FILE_ATTRIBUTE_NORMAL,
 		NULL);
-	
+
 	//Check if the connection was successfull
 	if (this->hSerial == INVALID_HANDLE_VALUE)
 	{
@@ -183,19 +181,6 @@ bool Serial::WriteData(const char *buffer, unsigned int nbChar)
 		//In case it don't work get comm error and return false
 		ClearCommError(this->hSerial, &this->errors, &this->status);
 
-		return false;
-	}
-	else
-		return true;
-}
-
-bool Serial::WriteData(int buffer, unsigned int nbChar)
-{
-	DWORD bytesSend;
-	if (!WriteFile(this->hSerial, (LPVOID)&buffer, nbChar, &bytesSend, 0))
-	{
-
-		ClearCommError(this->hSerial, &this->errors, &this->status);
 		return false;
 	}
 	else
