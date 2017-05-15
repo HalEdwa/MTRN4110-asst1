@@ -243,4 +243,7 @@ ModelManifest.xml
 
 # FAKE - F# Make
 .fake/
-Matlab/GyroCommunication.m
+
+#
+gyroCommunication.m 
+*.asv
