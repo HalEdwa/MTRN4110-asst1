@@ -20,7 +20,7 @@ function TCPRead()
     % IMU Variables
     Bias.Ax = -0.0175; Bias.Ay = -0.0868; Bias.Az = -1.0134;
     Bias.Gx = -1.8285; Bias.Gy = 2.5944; Bias.Gz = 1.3713;
-    IMU_data = struct('Attitude_G',[0, 0, 0],'Attitude_A',[0, 0],'Accel',[0, 0, 0],'Gyros',[0, 0, 0],'Dt',0,'TimeStamp',0);
+    IMU_data = struct('Attitude_G',[0, 0, pi/2],'Attitude_A',[0, 0],'Accel',[0, 0, 0],'Gyros',[0, 0, 0],'Dt',0,'TimeStamp',0);
     
     % Landmark map Variables
     global DA_Landmarks;
@@ -31,6 +31,8 @@ function TCPRead()
     % Localisation Variables
     X = [0;0;pi/2];
     k = 1;
+    
+    it = 1;
     
     %-------------------------------------------------------------------------
     % Set up plot handles
@@ -82,13 +84,13 @@ function TCPRead()
     title('Global Map');
     xlabel('y'); ylabel('x');
     
-    figure(6);
+    figure(6); clf(); hold on;
     guiH.og = surf(zeros(60));
     og = OccupancyGrid(3, 3, 0.05);
     title('Occupancy Grid');
     xlabel('x'); ylabel('y'); zlabel('z');
     
-%     figure(6); clf(); hold on;
+%     figure(7); clf(); hold on;
 %     Handles.Wx = plot(0,0,'r');
 %     Handles.Wy = plot(0,0,'g');
 %     Handles.Wz = plot(0,0,'b');
@@ -98,7 +100,7 @@ function TCPRead()
 %     ylabel('Rate of Yaw (Degrees/Sec)')
 %     zoom on; grid on;
 %     
-%     figure(7); clf(); hold on;
+%     figure(8); clf(); hold on;
 %     Handles.Ax = plot(0,0,'r');
 %     Handles.Ay = plot(0,0,'g');
 %     Handles.Az = plot(0,0,'b');
@@ -108,7 +110,7 @@ function TCPRead()
 %     ylabel('Linear Acceleration (M/Sec^2)')
 %     zoom on; grid on;
     
-%     figure(8); clf(); hold on;
+%     figure(9); clf(); hold on;
 %     Handles.Roll_G = plot(0,0,'r');
 %     Handles.Pitch_G = plot(0,0,'g');
 %     Handles.Yaw_G = plot(0,0,'b');
@@ -118,7 +120,7 @@ function TCPRead()
 %     ylabel('Attitude (Degrees)')
 %     zoom on; grid on;
 %     
-%     figure(9); clf(); hold on;
+%     figure(10); clf(); hold on;
 %     Handles.Roll_A = plot(0,0,'r');
 %     Handles.Pitch_A = plot(0,0,'g');
 %     Handles.Title_Attitude_A = title('');
@@ -145,12 +147,12 @@ function TCPRead()
         fopen(t);
     end
     
-    % Connect to IMU server
+% %     Connect to IMU server
 %     p = tcpip(ip_address, remote_port_imu);
 %     p.ByteOrder = 'littleEndian';   %Set Endian to convert
 %     fopen(p);   pause(1); 
 %     
-    % Wait for incoming bytes from IMU TCP
+%     % Wait for incoming bytes from IMU TCP
 %     while p.BytesAvailable == 0
 %         pause(1)
 %         disp('waiting for initial imu bytes...');
@@ -167,20 +169,21 @@ function TCPRead()
     disp('Connected to Servers');
     
     if (Live == 0)
-        load('recordedCameraData_20170503.mat')
+        load('CamRecord.mat')
         iteration = 1;
     end
     
     %-------------------------------------------------------------------------
     % Begin main program loop
     %-------------------------------------------------------------------------
+    counter =1;
     
     while (true)
         %----------------------------------------------------------------------
         %Receive and save incoming IMU data
         %----------------------------------------------------------------------
         
-        if (false)%get(p, 'BytesAvailable') > 0) 
+        if (false)%get(p, 'BytesAvailable') > 0 %(false)
             disp('Reading IMU...');
  
             IMU = Parse_IMU_Serial(p);   % Read over TCP and save IMU values
@@ -204,8 +207,10 @@ function TCPRead()
             IMU_data.Attitude_G(counter + 1,:) = ProcessAttitude_Gyros(IMU_data.Gyros(counter,:), IMU_data.Dt(counter), IMU_data.Attitude_G(counter,:));
             IMU_data.Attitude_A(counter + 1,:) = ProcessAttitude_Accel(IMU_data.Accel(counter,:), IMU_data.Attitude_A(counter,:));
             
-            Plot_IMU(Handles, IMU_data, counter);
+            % Update vehicle yaw based on accelometer pitch and roll + current vehicle yaw 
+            X(3) = DeadReckoningYaw(IMU_data.Gyros(counter,:), IMU_data.Dt(counter), IMU_data.Attitude_A(counter,1), IMU_data.Attitude_A(counter,2), X(3)); % Update vehicle pose based on gyros
             
+            Plot_IMU(Handles, IMU_data, counter);
             counter = counter + 1;
         end
         
@@ -215,19 +220,25 @@ function TCPRead()
         
         if (Live == 0)             
             % Load saved camera data frame
-            y = (recordedData(2,:,iteration))';
-            z = (recordedData(3,:,iteration))';
-            x = (recordedData(1,:,iteration))';
+            y = CamRecord.y(it,:)';
+            x = CamRecord.x(it,:)';
+            z = CamRecord.z(it,:)';
             
-            iteration = iteration + 1;
+            it = it + 1;
         elseif (get(t, 'BytesAvailable') > 0)
-            disp("Reading Camera...");
+            %disp("Reading Camera...");
             buff = fread(t, height*width*3, 'int16');
             
             % Read new camera data frame
             y = buff(1:19200); % Horizontal displacement
             z = buff(19201:38400);  % Vertical displacement
             x = buff(38401:57600);  % Depth
+            
+            CamRecord.x(it,:) = x(:);
+            CamRecord.y(it,:) = y(:);
+            CamRecord.z(it,:) = z(:);
+            
+            it = it + 1;
             
             CameraRead = 1; % Flag a successful read
         end
@@ -243,7 +254,7 @@ function TCPRead()
 
             % Filter out invalid data
             xx = x(xFilter ~= -1);
-            yy = y(xFilter ~= -1);
+            yy = -y(xFilter ~= -1);
             zz = z(xFilter ~= -1);
             
             % Transform camera data into image
@@ -253,7 +264,7 @@ function TCPRead()
             [roi_x, roi_y, roi_z] = ProcessROI(xx,yy,zz);  % Selects region of interest and transforms dataset
             [Pitch, Roll, Normal] = CalculateAttitude(roi_x, roi_y, roi_z); % Estimate Pitch and Roll
             [xT,yT,zT] = TransformCamera(Pitch,Roll,xx,yy,zz); %Transform data such that floor is flat
-            DepthScan = ScanPlane(xT/1000,yT/1000,zT/1000);    % Extract a depth scan along the horizon and convert mm to m
+            DepthScan = ScanPlane(-xT/1000,yT/1000,zT/1000);    % Extract a depth scan along the horizon and convert mm to m
             
             set(guiH.Image,'CData',DepthMap); % Plot DepthMap as an image
             set(guiH.PointCloud,'xdata',x,'ydata',y,'zdata',z);  % Plot raw point cloud
@@ -263,8 +274,10 @@ function TCPRead()
             set(guiH.PointCloud_Title, 'string', s);
             set(guiH.PointCloudT,'xdata',xT,'ydata',yT,'zdata',zT);
             
-            % Perform object classification from camera data 
-            OOIs = FindOOIs(DepthScan,LocalMap);    % Capture pole like objects as OOIs
+            % Perform object classification from camera data
+            OOIs = FindClustersandOOIs(DepthScan,LocalMap); 
+            
+            %OOIs = FindOOIs(DepthScan,LocalMap);    % Capture pole like objects as OOIs
             [GlobalOOIs, GlobalDepthScan] = TransformToGlobal(OOIs, DepthScan, X);   % Rotate and translate data by X
             AssociateLandmarks(GlobalOOIs, LandmarkMap, GlobalMap.DA_Labels);    % Update DA_Landmarks
             
@@ -281,7 +294,7 @@ function TCPRead()
             Pose(:,k) = X;
             
             % Display Results of localisation
-            %printf('Pose: X = %3f, Y = %3f, Theta = %3f\n', Pose(1,k), Pose(2,k), (Pose(3,k)));	% Print current pose 
+            fprintf('Pose: X = %3f, Y = %3f, Theta = %3f\n', Pose(1,k), Pose(2,k), rad2deg((Pose(3,k))));	% Print current pose 
             set(GlobalMap.Localisation,'xdata',Pose(1,1:k),'ydata',Pose(2,1:k));  %Global Frame Plot of Vehicle Pose
             set(GlobalMap.Heading,'xdata',X(1),'ydata',X(2),'Udata',0.3*cos(X(3)),'Vdata',0.3*sin(X(3)));
             
@@ -290,13 +303,17 @@ function TCPRead()
             %----------------------------------------------------------------------
             % Process and Plot Occupancy Grid
             %----------------------------------------------------------------------
-
-            og.addObservations(DepthScan(1,:), DepthScan(2,:));
+            
+            og.addObservations(-DepthScan(1,:), DepthScan(2,:));
             og.visualise(guiH.og);
             og.decrement();
         end
         
-        pause(0.0001);   % Short pause to allow rotation inputs for plotting
+        if (Live == 1)
+            pause(0.001);   % Short pause to allow rotation inputs for plotting
+        else
+            pause(0.1); % Longer pause to set recorded data reading in framerate
+        end
     end
 
     %-------------------------------------------------------------------------
@@ -333,12 +350,14 @@ function [roi_x, roi_y, roi_z] = ProcessROI(xx,yy,zz)
     xSize = 400;
     ySize = 400;
     xOffset = 100;
+    floorNoise = 100;
     
     % Set conditions for points to be within ROI
     minX = min(xx);
     xCrit = (xx > (minX + xOffset)) & (xx < (minX + xOffset + xSize));
     yCrit = (yy > -ySize/2) & (yy < ySize/2);
-    roi_condition = xCrit & yCrit;
+    zCrit = zz < (min(zz) + floorNoise);
+    roi_condition = xCrit & yCrit & zCrit;
     
     % Apply conditions and save ROI points
     roi_x = xx(roi_condition);
@@ -375,12 +394,12 @@ function [xT,yT,zT] = TransformCamera(Pitch,Roll,x,y,z)
     zT = rotatedCoords(3,:);
     
     % Attempt to offset floor to z = 0 position
-    zOffset = min(zT(zT > -200));
+    zOffset = min(zT(zT > -200)) + 95;
     zT = zT - zOffset;
 end
 
 function DepthScan = ScanPlane(xT,yT,zT)    
-    roi = find((zT > 0.1)&(zT < 0.2));
+    roi = find((zT > 0.15)&(zT < 0.25));
     
     DepthScan(1,:) = xT(roi);
     DepthScan(2,:) = yT(roi);
@@ -409,9 +428,9 @@ function OOIs = FindOOIs(DepthScan,h)
     OOIs.centers.y = [];
     
     MinPoleDia = 0.03;
-    MaxPoleDia = 0.75;
+    MaxPoleDia = 0.1;
     MinPoints = 10;
-    ClusterDist = 0.025;
+    ClusterDist = 0.3;
     
     iStart = 1;
     iEnd = 1;
@@ -420,16 +439,152 @@ function OOIs = FindOOIs(DepthScan,h)
       if (sqrt((x(i)-x(i-1))^2 + (y(i)-y(i-1))^2)) < ClusterDist
          iEnd = i-1;
       else
+         
          dist = sqrt((x(iStart)-x(iEnd))^2 + (y(iStart)-y(iEnd))^2);
-
+         
          if ((dist >= MinPoleDia)&&(dist <= MaxPoleDia)&&((iEnd-iStart) >= MinPoints))
             OOIs.N = OOIs.N + 1;
             OOIs.centers.x(OOIs.N) = mean(x(iStart:iEnd));
             OOIs.centers.y(OOIs.N) = mean(y(iStart:iEnd));
          end
          iStart = i;
-      end
+      end  
     end
+    
+    %Average positions of close OOIs
+    ConcatOOIs.N = 0;
+    ConcatOOIs.centers.x = [];
+    ConcatOOIs.centers.y = [];
+    offset = 0;
+    toMean = 0;
+    minGap = 0.1;
+    
+    for i=1:1:OOIs.N-1
+        if sqrt((OOIs.centers.x(i)-OOIs.centers.x(i+1))^2 + (OOIs.centers.y(i)-OOIs.centers.y(i+1))^2)>minGap
+            ConcatOOIs.N = ConcatOOIs.N+1;
+            meanX = [];
+            meanY = [];
+            for q=1:1:toMean+1
+                meanX = [meanX OOIs.centers.x(i-toMean-1+q)];
+                meanY = [meanY OOIs.centers.y(i-toMean-1+q)];
+            end
+            ConcatOOIs.centers.x(i-offset) = mean(meanX) ;
+            ConcatOOIs.centers.y(i-offset) = mean(meanY);
+            toMean = 0;
+        else
+            offset=offset+1;
+            toMean=toMean +1;
+        end
+        
+        if i == OOIs.N-1
+            ConcatOOIs.N = ConcatOOIs.N+1;
+            meanX = [];
+            meanY = [];
+            
+            for q=1:1:toMean+1
+                meanX = [meanX OOIs.centers.x(i+1-toMean-1+q)];
+                meanY = [meanY OOIs.centers.y(i+1-toMean-1+q)];
+            end
+            
+            ConcatOOIs.centers.x(i+1-offset) = mean(meanX) ;
+            ConcatOOIs.centers.y(i+1-offset) = mean(meanY);
+            toMean = 0;
+            OOIs.N = ConcatOOIs.N;
+            OOIs.centers.x = ConcatOOIs.centers.x;
+            OOIs.centers.y = ConcatOOIs.centers.y;
+        end
+    end
+    
+    set(h.ScanData, 'xdata', y, 'ydata', x);
+    set(h.OOIs, 'xdata', OOIs.centers.y, 'ydata', OOIs.centers.x);
+end
+
+function OOIs = FindClustersandOOIs(DepthScan,h)
+    x = DepthScan(1,:);
+    y = DepthScan(2,:);
+    
+    %since the data contains several scan lines, it is no longer an ordered
+    %dataset. Fix this by converting to polar form, ordering based on
+    %theta, then changing back to cartesian
+    unorderedRanges = sqrt(x.^2 + y.^2);
+    unorderedTheta = atan(y./x);
+    [theta, order] = sort(unorderedTheta);
+    ranges = unorderedRanges(order);
+    x = ranges .* cos(theta);
+    y = ranges .* sin(theta);
+    
+    OOIs.N = 0;
+    OOIs.centers.x = [];
+    OOIs.centers.y = [];
+    
+    MinPoleDia = 0.02;
+    MaxPoleDia = 0.10;
+    MinPoints = 20;
+    ClusterDist = 0.10;
+    
+    iStart = 1;
+    iEnd = 1;
+    oldiEnd = 0;
+    StartArray = [];
+    EndArray = [];
+    CenterXArray =  [];
+    CenterYArray =  [];
+    for i = 2:(length(x)-1)
+      if (sqrt((x(i)-x(i-1))^2 + (y(i)-y(i-1))^2)) < ClusterDist
+         iEnd = i;
+      else
+          %create of start, end and center fo every cluster
+            StartArray = [StartArray iStart];
+            if oldiEnd == iEnd 
+                iEnd = iEnd +1;
+            end
+            EndArray = [EndArray iEnd];
+            oldiEnd = iEnd;
+            CenterXArray =  [CenterXArray mean(x(iStart:iEnd))];
+            CenterYArray =  [CenterYArray mean(y(iStart:iEnd))];
+            iStart = i;
+      end  
+    end
+    
+    %Average positions of close OOIs
+    ConcatClusters.N = 0;
+    ConcatClusters.Start = [];
+    ConcatClusters.End = [];
+    offset = 0;
+    toMean = 0;
+    minGap = 0.2; %to make a new cluster
+  
+    for i=1:1:length(StartArray)-1
+        if sqrt((CenterXArray(i)-CenterXArray(i+1))^2 + (CenterYArray(i)-CenterYArray(i+1))^2)>minGap
+            ConcatClusters.N = ConcatClusters.N+1;
+            ConcatClusters.Start = [ConcatClusters.Start min(StartArray(i-toMean:i))] ;
+            ConcatClusters.End = [ConcatClusters.End max(StartArray(i-toMean:i))];
+            toMean = 0;
+        else
+            offset=offset+1;
+            toMean=toMean +1;
+        end
+        
+        if i == length(StartArray)-1
+           
+            ConcatClusters.N = ConcatClusters.N+1;
+            ConcatClusters.Start = [ ConcatClusters.Start min(StartArray(i+1-toMean:i+1))];
+            ConcatClusters.End = [ ConcatClusters.End max(StartArray(i+1-toMean:i+1))]; 
+            toMean = 0;
+        end
+    end
+    
+    for i = 1:1:ConcatClusters.N
+         iStart = ConcatClusters.Start(i);
+         iEnd = ConcatClusters.End(i);
+         dist = sqrt((x(iStart)-x(iEnd))^2 + (y(iStart)-y(iEnd))^2);
+          
+          if ((dist >= MinPoleDia)&&(dist <= MaxPoleDia)&&((iEnd-iStart) >= MinPoints))
+             OOIs.N = OOIs.N + 1;
+             OOIs.centers.x(OOIs.N) = mean(x(iStart:iEnd));
+             OOIs.centers.y(OOIs.N) = mean(y(iStart:iEnd));
+          end
+    end 
     
     set(h.ScanData, 'xdata', y, 'ydata', x);
     set(h.OOIs, 'xdata', OOIs.centers.y, 'ydata', OOIs.centers.x);
@@ -441,8 +596,8 @@ function [GlobalOOIs,GlobalDepthScan] = TransformToGlobal(OOIs, DepthScan, X)
     rotationMatrix = [cos(theta), -sin(theta); sin(theta), cos(theta)]; % Form rotation matrixes
     
     % Transform scan data and OOIs detected into the global frame
-    V_DepthScan = rotationMatrix*[DepthScan(1,:); DepthScan(2,:)];    % DepthScan Rotation
-    V_OOIs = rotationMatrix*[OOIs.centers.x(:)'; OOIs.centers.y(:)'];   % OOIs Rotation
+    V_DepthScan = rotationMatrix*[-DepthScan(1,:); DepthScan(2,:)];    % DepthScan Rotation
+    V_OOIs = rotationMatrix*[OOIs.centers.x(:)'; -OOIs.centers.y(:)'];   % OOIs Rotation
 
     % DepthScan Translation
     GlobalDepthScan.x = V_DepthScan(1,:) + X(1);
@@ -456,7 +611,7 @@ end
 
 function AssociateLandmarks(GlobalOOIs, LandmarkMap,gh)
     global DA_Landmarks;
-    ID_Tolerance = 0.1;
+    ID_Tolerance = 0.25;
     
     g = 1;
     
@@ -492,13 +647,15 @@ end
 function X = Localise(X_Last,LandmarkMap)
         global DA_Landmarks;
         
-        options = optimset('MaxFunEvals',1000);
+        %options = optimset('MaxFunEvals',1000);
         
         if (DA_Landmarks.N > 1)   %Triangulate and localise
-            X = fminsearch(@(X) Triangulate(X,LandmarkMap),[X_Last(1),X_Last(2),X_Last(3)], options); % Triangulate and return x, y, phi
+            X = fminsearch(@(X) Triangulate(X,LandmarkMap),[X_Last(1),X_Last(2),X_Last(3)]); % Triangulate and return x, y, phi
         else
             X = X_Last;
         end
+        
+        %X = X_Last;    % Uncomment to disable localisation
 end
 
 function F = Triangulate(X, LandmarkMap)
@@ -508,23 +665,37 @@ function F = Triangulate(X, LandmarkMap)
     u = 1;
     
     for i = 1:DA_Landmarks.N
-        ID = DA_Landmarks.ID(i);
+        id = DA_Landmarks.ID(i);
         
-        edx = LandmarkMap.x(ID) - X(1);
-        edy = LandmarkMap.y(ID) - X(2);
         mdx = DA_Landmarks.x(i) - X(1);
         mdy = DA_Landmarks.y(i) - X(2);
         
-        ExpectedRange = sqrt(edx^2 + edy^2);
-        MeasuredRange = sqrt(mdx^2 + mdy^2);
-        ExpectedBearing = atan2(edx, edy) + pi/2 - X(3);
-        MeasuredBearing = atan2(mdx, mdy) + pi/2 - X(3);
+        M_Range = sqrt(mdx^2 + mdy^2);
+        M_Bearing = atan2(mdy, mdx) - X(3);
         
-        F(u) = MeasuredRange - ExpectedRange; % Range
-        F(u + 1) = MeasuredBearing - ExpectedBearing; % Bearing
+        E_Range = sqrt(LandmarkMap.x(id)^2 + LandmarkMap.y(id)^2); 
+        E_Bearing = atan2(LandmarkMap.y(id), LandmarkMap.x(id));
+        
+        F(u) = M_Range - E_Range;
+        F(u + 1) = M_Bearing - E_Bearing + pi/2;  
         u = u + 2;
     end
+    
     F = sum(F.^2);
+end
+
+function Yaw = DeadReckoningYaw(gyros, dt, CurrentRoll, CurrentPitch, CurrentYaw)
+    wx = gyros(1);  r = CurrentRoll;
+    wy = gyros(2);  p = CurrentPitch;
+    wz = gyros(3);  y = CurrentYaw;
+    
+    if (~isnan(wy) && ~isnan(wz)) % If data is valid
+        Yaw = y + dt*((wy*sin(r) + wz*cos(r))/cos(p));
+    else
+        Yaw = CurrentYaw;
+    end
+    
+    rad2deg(Yaw)
 end
 
 %-------------------------------------------------------------------------
@@ -559,8 +730,8 @@ function imuRaw = Parse_IMU_Serial(t)
 end
 
 function NewAttitude = ProcessAttitude_Gyros(gyros, dt, CurrentAttitude)
-    wx = gyros(1);  r = CurrentAttitude(1); 
-    wy = gyros(2);  p = CurrentAttitude(2); 
+    wx = gyros(1);  r = CurrentAttitude(1);
+    wy = gyros(2);  p = CurrentAttitude(2);
     wz = gyros(3);  y = CurrentAttitude(3);
     
     if (~isnan(wx) && ~isnan(wy) && ~isnan(wz)) % If data is valid
@@ -574,7 +745,7 @@ function NewAttitude = ProcessAttitude_Gyros(gyros, dt, CurrentAttitude)
 end
 
 function NewAttitude = ProcessAttitude_Accel(accel, CurrentAttitude)
-    ax = accel(1);  
+    ax = accel(1);
     ay = accel(2);
     az = accel(3);
  
