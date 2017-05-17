@@ -14,7 +14,7 @@ function TCPRead()
     % Camera Variables
     width = 160;
     height = 120;
-    Live = 1;
+    Live = 0;
     CameraRead = 0;
     
     % IMU Variables
@@ -33,11 +33,16 @@ function TCPRead()
     k = 1;
     
     it = 1;
+    labels = text(0,0,' ');
     
     %-------------------------------------------------------------------------
     % Set up plot handles
     %-------------------------------------------------------------------------
-    
+    figure(6); clf(); hold on;
+    guiH.og = surf(zeros(60));
+    og = OccupancyGrid(3, 3, 0.05);
+    title('Occupancy Grid');
+    xlabel('x'); ylabel('y'); zlabel('z');
     % Image Feed
     figure(1); clf();
     guiH.Image = imagesc();
@@ -72,23 +77,18 @@ function TCPRead()
     
     % Global Frame plot
     figure(5); clf(); hold on; axis equal
-    GlobalMap.DepthScan = plot(0,0,'b.');
+    GlobalMap.DepthScan = plot(0,0,'cyan.');
     GlobalMap.Localisation = plot(0,0,'r');
     GlobalMap.CurrentPos = plot(0,0,'black.','markersize',7);
     GlobalMap.Heading = quiver(0,0,0,0,'magenta');
-    GlobalMap.DA_Labels = [];
-    GlobalMap.DA_Labels_Map = [];
-    GlobalMap.Landmarks = plot(0,0,'g.','markersize',15);   %Depth map at horizon scatterplot handle
-    GlobalMap.LandmarksMap = plot(0,0,'cyan.','markersize',15);   %Depth map at horizon scatterplot handle
+    GlobalMap.DA_Labels = text(0,0,' ');
+    GlobalMap.DA_Labels_Map = text(0,0, ' ');
+    GlobalMap.Landmarks = plot(0,0,'r.','markersize',15);   %Depth map at horizon scatterplot handle
+    GlobalMap.LandmarksMap = plot(0,0,'black.','markersize',15);   %Depth map at horizon scatterplot handle
     axis([-2 2 -0.2 3.5]);
     title('Global Map');
     xlabel('y'); ylabel('x');
-    
-    figure(6); clf(); hold on;
-    guiH.og = surf(zeros(60));
-    og = OccupancyGrid(3, 3, 0.05);
-    title('Occupancy Grid');
-    xlabel('x'); ylabel('y'); zlabel('z');
+   
     
 %     figure(7); clf(); hold on;
 %     Handles.Wx = plot(0,0,'r');
@@ -130,9 +130,9 @@ function TCPRead()
 %     zoom on; grid on;
     
     % Plot known Landmark Map on global Frame
-    set(GlobalMap.LandmarksMap, 'xdata', LandmarkMap.x(:), 'ydata', LandmarkMap.y(:));
+     set(GlobalMap.LandmarksMap, 'xdata', LandmarkMap.x(:), 'ydata', LandmarkMap.y(:));
     for i = 1:LandmarkMap.N
-        GlobalMap.DA_Labels_Map(i) = text(double(LandmarkMap.x(i) - 0.03),double(LandmarkMap.y(i) + 0.15),int2str(i),'FontSize',8,'Color','cyan');
+        GlobalMap.DA_Labels_Map(i) = text(double(LandmarkMap.x(i) - 0.03),double(LandmarkMap.y(i) + 0.15),int2str(i),'FontSize',8,'Color','black');
     end
 
     %-------------------------------------------------------------------------
@@ -170,7 +170,6 @@ function TCPRead()
     
     if (Live == 0)
         load('CamRecord.mat')
-        iteration = 1;
     end
     
     %-------------------------------------------------------------------------
@@ -277,9 +276,10 @@ function TCPRead()
             % Perform object classification from camera data
             OOIs = FindClustersandOOIs(DepthScan,LocalMap); 
             
-            %OOIs = FindOOIs(DepthScan,LocalMap);    % Capture pole like objects as OOIs
-            [GlobalOOIs, GlobalDepthScan] = TransformToGlobal(OOIs, DepthScan, X);   % Rotate and translate data by X
-            AssociateLandmarks(GlobalOOIs, LandmarkMap, GlobalMap.DA_Labels);    % Update DA_Landmarks
+            [GlobalOOIs, GlobalDepthScan] = TransformToGlobal(OOIs, DepthScan, X );   % Rotate and translate data by X
+            
+            delete(labels);
+            labels = AssociateLandmarks(GlobalOOIs, LandmarkMap, GlobalMap.DA_Labels);    % Update DA_Landmarks
             
             set(GlobalMap.DepthScan,'xdata',GlobalDepthScan.x,'ydata',GlobalDepthScan.y);
             set(GlobalMap.Landmarks,'xdata',GlobalOOIs.x,'ydata',GlobalOOIs.y);
@@ -409,96 +409,6 @@ end
 % Classification and Data Association
 %-------------------------------------------------------------------------
 
-function OOIs = FindOOIs(DepthScan,h)
-    x = DepthScan(1,:);
-    y = DepthScan(2,:);
-    
-    %since the data contains several scan lines, it is no longer an ordered
-    %dataset. Fix this by converting to polar form, ordering based on
-    %theta, then changing back to cartesian
-    unorderedRanges = sqrt(x.^2 + y.^2);
-    unorderedTheta = atan(y./x);
-    [theta, order] = sort(unorderedTheta);
-    ranges = unorderedRanges(order);
-    x = ranges .* cos(theta);
-    y = ranges .* sin(theta);
-    
-    OOIs.N = 0;
-    OOIs.centers.x = [];
-    OOIs.centers.y = [];
-    
-    MinPoleDia = 0.03;
-    MaxPoleDia = 0.1;
-    MinPoints = 10;
-    ClusterDist = 0.3;
-    
-    iStart = 1;
-    iEnd = 1;
-    
-    for i = 2:(length(x)-1)
-      if (sqrt((x(i)-x(i-1))^2 + (y(i)-y(i-1))^2)) < ClusterDist
-         iEnd = i-1;
-      else
-         
-         dist = sqrt((x(iStart)-x(iEnd))^2 + (y(iStart)-y(iEnd))^2);
-         
-         if ((dist >= MinPoleDia)&&(dist <= MaxPoleDia)&&((iEnd-iStart) >= MinPoints))
-            OOIs.N = OOIs.N + 1;
-            OOIs.centers.x(OOIs.N) = mean(x(iStart:iEnd));
-            OOIs.centers.y(OOIs.N) = mean(y(iStart:iEnd));
-         end
-         iStart = i;
-      end  
-    end
-    
-    %Average positions of close OOIs
-    ConcatOOIs.N = 0;
-    ConcatOOIs.centers.x = [];
-    ConcatOOIs.centers.y = [];
-    offset = 0;
-    toMean = 0;
-    minGap = 0.1;
-    
-    for i=1:1:OOIs.N-1
-        if sqrt((OOIs.centers.x(i)-OOIs.centers.x(i+1))^2 + (OOIs.centers.y(i)-OOIs.centers.y(i+1))^2)>minGap
-            ConcatOOIs.N = ConcatOOIs.N+1;
-            meanX = [];
-            meanY = [];
-            for q=1:1:toMean+1
-                meanX = [meanX OOIs.centers.x(i-toMean-1+q)];
-                meanY = [meanY OOIs.centers.y(i-toMean-1+q)];
-            end
-            ConcatOOIs.centers.x(i-offset) = mean(meanX) ;
-            ConcatOOIs.centers.y(i-offset) = mean(meanY);
-            toMean = 0;
-        else
-            offset=offset+1;
-            toMean=toMean +1;
-        end
-        
-        if i == OOIs.N-1
-            ConcatOOIs.N = ConcatOOIs.N+1;
-            meanX = [];
-            meanY = [];
-            
-            for q=1:1:toMean+1
-                meanX = [meanX OOIs.centers.x(i+1-toMean-1+q)];
-                meanY = [meanY OOIs.centers.y(i+1-toMean-1+q)];
-            end
-            
-            ConcatOOIs.centers.x(i+1-offset) = mean(meanX) ;
-            ConcatOOIs.centers.y(i+1-offset) = mean(meanY);
-            toMean = 0;
-            OOIs.N = ConcatOOIs.N;
-            OOIs.centers.x = ConcatOOIs.centers.x;
-            OOIs.centers.y = ConcatOOIs.centers.y;
-        end
-    end
-    
-    set(h.ScanData, 'xdata', y, 'ydata', x);
-    set(h.OOIs, 'xdata', OOIs.centers.y, 'ydata', OOIs.centers.x);
-end
-
 function OOIs = FindClustersandOOIs(DepthScan,h)
     x = DepthScan(1,:);
     y = DepthScan(2,:);
@@ -605,22 +515,26 @@ function [GlobalOOIs,GlobalDepthScan] = TransformToGlobal(OOIs, DepthScan, X)
 
     % OOIs Translation
     GlobalOOIs.x = V_OOIs(1,:) + X(1);    % Translate x positions of OOI
-    GlobalOOIs.y = V_OOIs(2,:) + X(2);    % Translate y positions of OOI
+    GlobalOOIs.y = V_OOIs(2,:) +X(2);    % Translate y positions of OOI
     GlobalOOIs.N = OOIs.N;  % Number of landmarks
 end
 
-function AssociateLandmarks(GlobalOOIs, LandmarkMap,gh)
+function gh = AssociateLandmarks(GlobalOOIs, LandmarkMap,gh)
     global DA_Landmarks;
     ID_Tolerance = 0.25;
     
-    g = 1;
+    DA_Landmarks.x = [];
+    DA_Landmarks.y = [];
+    DA_Landmarks.ID = [];
+    DA_Landmarks.N = 0;
     
+    g = 1;
+
     if (GlobalOOIs.N > 0)
         for m = 1:GlobalOOIs.N %iterate through live OOIs
             for n = 1:LandmarkMap.N %Check each live OOIs against each OOI in first scan
                 % Check is distance between points is close enough
                 if (((GlobalOOIs.x(m) - LandmarkMap.x(n))^2 + ((GlobalOOIs.y(m) - LandmarkMap.y(n))^2)) < ID_Tolerance^2)
-                    gh.DA_Labels(g) = text(double(GlobalOOIs.x(m) - 0.1),double(GlobalOOIs.y(m)),int2str(n),'FontSize',8,'Color','g');
                     DA_Landmarks.x(g) = GlobalOOIs.x(m);   % Save x value
                     DA_Landmarks.y(g) = GlobalOOIs.y(m);   % Save y value
                     DA_Landmarks.ID(g) = n;    % Save current ID
@@ -634,10 +548,10 @@ function AssociateLandmarks(GlobalOOIs, LandmarkMap,gh)
         DA_Landmarks.N = 0; % No data associated landmarks
     end
     
-    gh.DA_Labels(g) = text(double(10),double(10),int2str(69),'FontSize',8,'Color','g');
-    pause(0.0001);   % Small delay to make sure labels are visible
-    
-    delete(gh.DA_Labels); % Delete labels every plot
+    if DA_Landmarks.N > 0
+        %set(gh, 'Position', [DA_Landmarks.x(:), DA_Landmarks.y(:)],'String',int2str(DA_Landmarks.ID(:)),'FontSize',8,'Color','g');
+        gh = text(DA_Landmarks.x(:) + 0.07, DA_Landmarks.y(:),int2str(DA_Landmarks.ID(:)),'FontSize',10,'Color','r');
+    end
 end
 
 %-------------------------------------------------------------------------
@@ -646,8 +560,6 @@ end
 
 function X = Localise(X_Last,LandmarkMap)
         global DA_Landmarks;
-        
-        %options = optimset('MaxFunEvals',1000);
         
         if (DA_Landmarks.N > 1)   %Triangulate and localise
             X = fminsearch(@(X) Triangulate(X,LandmarkMap),[X_Last(1),X_Last(2),X_Last(3)]); % Triangulate and return x, y, phi
@@ -668,7 +580,7 @@ function F = Triangulate(X, LandmarkMap)
         id = DA_Landmarks.ID(i);
         
         mdx = DA_Landmarks.x(i) - X(1);
-        mdy = DA_Landmarks.y(i) - X(2);
+        mdy = DA_Landmarks.y(i) + X(2);
         
         M_Range = sqrt(mdx^2 + mdy^2);
         M_Bearing = atan2(mdy, mdx) - X(3);
