@@ -110,7 +110,7 @@ int TCP_ServerConfig() {
 // application reads from the specified serial port and reports the collected data
 int _tmain(int argc, _TCHAR* argv[])
 {
-	Serial* SP = new Serial("COM4");    // adjust as needed
+	Serial* SP = new Serial("COM6");    // adjust as needed
 
 	if (SP->IsConnected())
 		printf("We're connected");
