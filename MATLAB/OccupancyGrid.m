@@ -9,7 +9,7 @@ classdef OccupancyGrid<handle
         
         maxVal = 4000;
         incrAmount = 20;
-        decrAmount = 10;
+        decrAmount = 2;
         decrMultiplier = 0.8;
     end
     
@@ -20,17 +20,17 @@ classdef OccupancyGrid<handle
             obj.Resolution = resolution;
         end
         
-        function obj = addObservations(obj, x, y)
-%                 camerax = 1.5;
-                cameray = 1.5;
-%                 x = x + camerax;
-                y = y + cameray;
+        function obj = addObservations(obj, x, y, diameter)
 
             [x, y] = cleanPts(obj, x, y);
-            
-            for i = 1:length(x)
-                obj.Grid(x(i), y(i)) = obj.Grid(x(i), y(i)) + obj.incrAmount;
-            end
+            shapeInserter = vision.ShapeInserter('Shape','Circles', 'BorderColor', 'white','Fill', true, 'FillColor', 'white');
+            observations = [x' + round(size(obj.Grid, 1)/2), y', repmat(round(diameter' / obj.Resolution), numel(x), 1)];
+            obj.Grid = obj.Grid + obj.incrAmount*shapeInserter(zeros(size(obj.Grid)), observations);
+
+%             for i = 1:length(x)
+%                 obj.Grid(1, 50) = 1000;%obj.Grid(10, 50) + obj.incrAmount;%
+%                 obj.Grid(y(i), x(i) + round(size(obj.Grid, 1)/2)) = obj.Grid(y(i), x(i) + round(size(obj.Grid, 1)/2)) + obj.incrAmount;
+%             end
             obj.Grid(obj.Grid > obj.maxVal) = obj.maxVal;
         end
         
@@ -61,6 +61,7 @@ classdef OccupancyGrid<handle
                 heightData(landMarkIdx) = max(max(heightData));
                 set(h, 'cdata', cdata, 'zdata', heightData);
             else
+                            
                 set(h, 'cdata', obj.Grid, 'zdata', obj.Grid);
             end
         end
@@ -81,7 +82,7 @@ end
 function [x, y] = cleanPts(obj, x, y)
     x = round(x / obj.Resolution);
     y = round(y / obj.Resolution);
-    goodpts = x < size(obj.Grid, 1) & x > 0 & y < size(obj.Grid, 2) & y > 0;
+    goodpts = x < size(obj.Grid, 1)/2 & x > -size(obj.Grid, 1)/2 & y < size(obj.Grid, 2) & y > 0;
     if find(goodpts == 0)
         %for some reason there are lots of pts where y = 30. Why is this???
 %          disp('OCCUPANCYGRID:WARNING: some points are outside the occupancy grid');

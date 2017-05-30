@@ -326,7 +326,7 @@ function TCPRead()
             % Process and Plot Occupancy Grid
             %----------------------------------------------------------------------
             
-            og.addObservations(-DepthScan(1,:), DepthScan(2,:));
+            og.addObservations(GlobalOOIs.x, GlobalOOIs.y, 0.25);
             og.visualise(guiH.og);
             og.decrement();
         end
