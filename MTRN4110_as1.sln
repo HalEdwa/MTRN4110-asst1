@@ -9,6 +9,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TCP_SerialArduino", "TCP_Se
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MotorControl", "MotorControl\MotorControl.vcxproj", "{2961FB4A-AC1E-4B76-A2E6-4FD97A22FC97}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HexControl", "HexControl\HexControl.vcxproj", "{D14B9E00-A985-4345-B5CB-5B6A42C89CBA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|ARM = Debug|ARM
@@ -49,6 +51,16 @@ Global
 		{2961FB4A-AC1E-4B76-A2E6-4FD97A22FC97}.Release|x64.Build.0 = Release|x64
 		{2961FB4A-AC1E-4B76-A2E6-4FD97A22FC97}.Release|x86.ActiveCfg = Release|Win32
 		{2961FB4A-AC1E-4B76-A2E6-4FD97A22FC97}.Release|x86.Build.0 = Release|Win32
+		{D14B9E00-A985-4345-B5CB-5B6A42C89CBA}.Debug|ARM.ActiveCfg = Debug|Win32
+		{D14B9E00-A985-4345-B5CB-5B6A42C89CBA}.Debug|x64.ActiveCfg = Debug|x64
+		{D14B9E00-A985-4345-B5CB-5B6A42C89CBA}.Debug|x64.Build.0 = Debug|x64
+		{D14B9E00-A985-4345-B5CB-5B6A42C89CBA}.Debug|x86.ActiveCfg = Debug|Win32
+		{D14B9E00-A985-4345-B5CB-5B6A42C89CBA}.Debug|x86.Build.0 = Debug|Win32
+		{D14B9E00-A985-4345-B5CB-5B6A42C89CBA}.Release|ARM.ActiveCfg = Release|Win32
+		{D14B9E00-A985-4345-B5CB-5B6A42C89CBA}.Release|x64.ActiveCfg = Release|x64
+		{D14B9E00-A985-4345-B5CB-5B6A42C89CBA}.Release|x64.Build.0 = Release|x64
+		{D14B9E00-A985-4345-B5CB-5B6A42C89CBA}.Release|x86.ActiveCfg = Release|Win32
+		{D14B9E00-A985-4345-B5CB-5B6A42C89CBA}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
