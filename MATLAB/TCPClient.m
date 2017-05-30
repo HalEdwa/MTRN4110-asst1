@@ -14,7 +14,7 @@ function TCPRead()
     % Camera Variables
     width = 160;
     height = 120;
-    Live = 0;
+    Live = 1;
     CameraRead = 0;
     
     % IMU Variables
@@ -169,13 +169,13 @@ function TCPRead()
     disp('Connected to Servers');
     
     if (Live == 0)
-        load('CamRecord.mat')
+        load('recordedCameraData_240517.mat')
     end
     
     %-------------------------------------------------------------------------
     % Begin main program loop
     %-------------------------------------------------------------------------
-    counter =1;
+    counter = 1;
     
     while (true)
         %----------------------------------------------------------------------
@@ -207,7 +207,7 @@ function TCPRead()
             IMU_data.Attitude_A(counter + 1,:) = ProcessAttitude_Accel(IMU_data.Accel(counter,:), IMU_data.Attitude_A(counter,:));
             
             % Update vehicle yaw based on accelometer pitch and roll + current vehicle yaw 
-            X(3) = DeadReckoningYaw(IMU_data.Gyros(counter,:), IMU_data.Dt(counter), IMU_data.Attitude_A(counter,1), IMU_data.Attitude_A(counter,2), X(3)); % Update vehicle pose based on gyros
+            %X(3) = DeadReckoningYaw(IMU_data.Gyros(counter,:), IMU_data.Dt(counter), IMU_data.Attitude_A(counter,1), IMU_data.Attitude_A(counter,2), X(3)); % Update vehicle pose based on gyros
             
             Plot_IMU(Handles, IMU_data, counter);
             counter = counter + 1;
@@ -274,12 +274,12 @@ function TCPRead()
             set(guiH.PointCloudT,'xdata',xT,'ydata',yT,'zdata',zT);
             
             % Perform object classification from camera data
-            OOIs = FindClustersandOOIs(DepthScan,LocalMap); 
+            OOIs = FindOOIs(DepthScan,LocalMap);
             
-            [GlobalOOIs, GlobalDepthScan] = TransformToGlobal(OOIs, DepthScan, X );   % Rotate and translate data by X
+            [GlobalOOIs, GlobalDepthScan] = TransformToGlobal(OOIs, DepthScan, X);   % Rotate and translate data by X
             
             delete(labels);
-            labels = AssociateLandmarks(GlobalOOIs, LandmarkMap, GlobalMap.DA_Labels);    % Update DA_Landmarks
+            labels = AssociateLandmarks(GlobalOOIs, OOIs, LandmarkMap, GlobalMap.DA_Labels);    % Update DA_Landmarks
             
             set(GlobalMap.DepthScan,'xdata',GlobalDepthScan.x,'ydata',GlobalDepthScan.y);
             set(GlobalMap.Landmarks,'xdata',GlobalOOIs.x,'ydata',GlobalOOIs.y);
@@ -289,8 +289,14 @@ function TCPRead()
             %----------------------------------------------------------------------
             % Process Vehicle Localisation
             %----------------------------------------------------------------------
-
-            X = Localise(X,LandmarkMap);    % Update pose based on data associated landmarks
+            %Ranges = zeros(361,1);  % Replace with scan data
+            %LaserScan = GetLaserScan(dataL);
+            
+            %VehiclePosition = FindVehiclePosition(LaserScan, ScanMap, GlobalMap.LaserScan);   % Estimate vehicle position from LIDAR data
+            %[X(1), X(2)] = UpdatePosition(VehiclePosition);  % Update position (X(1), X(2) based on lidar scan
+            %X(3) = LocaliseYaw(X,LandmarkMap);    % Update yaw (X(3)) based on data associated landmarks
+            
+            X = Localise(X,LandmarkMap);    % Part 3 original localisation
             Pose(:,k) = X;
             
             % Display Results of localisation
@@ -312,7 +318,7 @@ function TCPRead()
         if (Live == 1)
             pause(0.001);   % Short pause to allow rotation inputs for plotting
         else
-            pause(0.1); % Longer pause to set recorded data reading in framerate
+            pause(0.2); % Longer pause to set recorded data reading in framerate
         end
     end
 
@@ -409,7 +415,104 @@ end
 % Classification and Data Association
 %-------------------------------------------------------------------------
 
-function OOIs = FindClustersandOOIs(DepthScan,h)
+function [LaserScan, intensities] = GetLaserScan(scan)
+    anglesDeg = [0:360]'*0.5;      % angles in degrees
+    anglesRad = anglesDeg/180*pi;   % angles in radians
+    
+    % scan data is provided as a array of class uint16, which encode range
+    % and intensity (that is the way the sensor provides the data, in that
+    % mode of operation)
+    
+    MaskLow13Bits = uint16(2^13 - 1);   % Set 13 bit mask, to extract range data
+    MaskHigh3Bits = bitshift(uint16(2^3 - 1), 13); % Set top 3 bit mask for intensity
+    
+    rangesCM = bitand(scan, MaskLow13Bits); % range vector in CMs
+    ranges = 0.01*double(rangesCM); % range vector in meters as float
+    intensities = bitand(scan, MaskHigh3Bits); % intensity vector
+    
+    % Convert POLAR to Cartesian co-ords
+    [LaserScan(1), LaserScan(2)] = pol2cart(anglesRad, ranges);
+end
+
+function VehiclePosition = FindVehiclePosition(X,LaserScan,intensities,lh,gh)
+    X = LaserScan(1,:);
+    Y = LaserScan(2,:);
+    
+    OOIs.N = 0;             % scalar for number of OOIs detected
+    OOIs.Colors = [];       % Vector 1 x N for Color of each OOI
+    OOIs.Centers = [];      % Matrix of size 2 x N, with X,Y coords for center of OOI
+    OOIs.Diameters = [];    % Vector 1 x N for diam of each OOI
+    
+    clusters.N = 1;
+    clusters.start = zeros(1,361);  %index of cluster starts
+    clusters.end = zeros(1,361);    %index of cluster ends
+    
+    clusters.start(1) = 1;          %index of first cluster starts at 1
+    
+    % Find clusters
+    for i = 2:361
+       if sqrt((X(i)-X(i-1))^2 + (Y(i)-Y(i-1))^2) > 0.10
+            clusters.end(clusters.N) = i-1;
+            clusters.start(clusters.N + 1) = i;
+            clusters.N = clusters.N + 1;
+       end 
+    end
+    
+    clusters.end(clusters.N) = 361; %index of last cluster ends at 361
+    
+    %Detect diameters - hacky approximation start - end
+    for i = 1:clusters.N
+       iStart = clusters.start(i);
+       iEnd = clusters.end(i);
+       dist = sqrt((X(iStart)-X(iEnd))^2 + (Y(iStart)-Y(iEnd))^2);
+       
+       % If distances between start and end points are within range,
+       % register as OOI
+       if (dist >= 0.05) && (dist <= 0.20)
+           
+           %Increment OOI count
+           OOIs.N = OOIs.N + 1;
+           
+           %Save Diameter
+           OOIs.Diameters(OOIs.N) = dist;
+           
+           %Scan to see if cluster contains pixel with high intensity
+           clusterIntensities = intensities(iStart:iEnd);
+           
+           if find(clusterIntensities > 0)
+              OOIs.Colors(OOIs.N) = 1;
+           else
+              OOIs.Colors(OOIs.N) = 0;
+           end
+           
+           %Add OOI center data
+           OOIs.Centers(:, OOIs.N) = [(X(iStart)+X(iEnd))/2, (Y(iStart)+Y(iEnd))/2];
+       end
+    end
+    
+    if OOIs.N > 0
+       Dist = (X(1) - OOIs.Centers(1,OOIs.Colors == 1)).^2 + (X(2) - OOIs.Centers(2,OOIs.Colors == 1)).^2;  
+       
+       if size(Dist) > 0
+           % If at least one OOI has at least intense point pick closest to current position
+           VehiclePosition(1) = OOIs.Centers(1,min(Dist(:)));
+           VehiclePosition(2) = OOIs.Centers(2,min(Dist(:)));
+       else
+           % If no OOIs have at least one intense point set to last known position
+           VehiclePosition(1) = X(1);
+           VehiclePosition(2) = X(2);
+       end
+    else 
+       % If no OOIs found set to last known position
+       VehiclePosition(1) = X(1);
+       VehiclePosition(2) = X(2);
+    end
+    
+    set(lh, 'xdata', X(:), 'ydata', Y(:));
+    set(gh, 'xdata', VehiclePosition(1), 'ydata', VehiclePosition(2));
+end
+
+function OOIs = FindOOIs(DepthScan,h)
     x = DepthScan(1,:);
     y = DepthScan(2,:);
     
@@ -427,10 +530,10 @@ function OOIs = FindClustersandOOIs(DepthScan,h)
     OOIs.centers.x = [];
     OOIs.centers.y = [];
     
-    MinPoleDia = 0.02;
-    MaxPoleDia = 0.10;
+    MinPoleDia = 0.04;
+    MaxPoleDia = 0.15;
     MinPoints = 20;
-    ClusterDist = 0.10;
+    ClusterDist = 0.05;
     
     iStart = 1;
     iEnd = 1;
@@ -450,8 +553,8 @@ function OOIs = FindClustersandOOIs(DepthScan,h)
             end
             EndArray = [EndArray iEnd];
             oldiEnd = iEnd;
-            CenterXArray =  [CenterXArray mean(x(iStart:iEnd))];
-            CenterYArray =  [CenterYArray mean(y(iStart:iEnd))];
+            CenterXArray = [CenterXArray mean(x(iStart:iEnd))];
+            CenterYArray = [CenterYArray mean(y(iStart:iEnd))];
             iStart = i;
       end  
     end
@@ -465,7 +568,7 @@ function OOIs = FindClustersandOOIs(DepthScan,h)
     minGap = 0.2; %to make a new cluster
   
     for i=1:1:length(StartArray)-1
-        if sqrt((CenterXArray(i)-CenterXArray(i+1))^2 + (CenterYArray(i)-CenterYArray(i+1))^2)>minGap
+        if sqrt((CenterXArray(i)-CenterXArray(i+1))^2 + (CenterYArray(i)-CenterYArray(i+1))^2) > minGap
             ConcatClusters.N = ConcatClusters.N+1;
             ConcatClusters.Start = [ConcatClusters.Start min(StartArray(i-toMean:i))] ;
             ConcatClusters.End = [ConcatClusters.End max(StartArray(i-toMean:i))];
@@ -476,7 +579,6 @@ function OOIs = FindClustersandOOIs(DepthScan,h)
         end
         
         if i == length(StartArray)-1
-           
             ConcatClusters.N = ConcatClusters.N+1;
             ConcatClusters.Start = [ ConcatClusters.Start min(StartArray(i+1-toMean:i+1))];
             ConcatClusters.End = [ ConcatClusters.End max(StartArray(i+1-toMean:i+1))]; 
@@ -519,9 +621,23 @@ function [GlobalOOIs,GlobalDepthScan] = TransformToGlobal(OOIs, DepthScan, X)
     GlobalOOIs.N = OOIs.N;  % Number of landmarks
 end
 
-function gh = AssociateLandmarks(GlobalOOIs, LandmarkMap,gh)
+function GlobalOOIs = GlobalTransform(OOIs, X)
+    % Transform OOIs into global frame
+    theta = X(3);
+    rotationMatrix = [cos(theta), -sin(theta); sin(theta), cos(theta)]; % Form rotation matrixes
+    
+    % Transform scan data and OOIs detected into the global frame
+    V_OOIs = rotationMatrix*[OOIs.x(:)'; -OOIs.y(:)'];   % OOIs Rotation
+
+    % OOIs Translation
+    GlobalOOIs.x = V_OOIs(1,:) + X(1);    % Translate x positions of OOI
+    GlobalOOIs.y = V_OOIs(2,:) + X(2);    % Translate y positions of OOI
+    GlobalOOIs.N = OOIs.N;  % Number of landmarks
+end
+
+function gh = AssociateLandmarks(GlobalOOIs, LocalOOIs, LandmarkMap,gh)
     global DA_Landmarks;
-    ID_Tolerance = 0.25;
+    ID_Tolerance = 0.2;
     
     DA_Landmarks.x = [];
     DA_Landmarks.y = [];
@@ -535,10 +651,14 @@ function gh = AssociateLandmarks(GlobalOOIs, LandmarkMap,gh)
             for n = 1:LandmarkMap.N %Check each live OOIs against each OOI in first scan
                 % Check is distance between points is close enough
                 if (((GlobalOOIs.x(m) - LandmarkMap.x(n))^2 + ((GlobalOOIs.y(m) - LandmarkMap.y(n))^2)) < ID_Tolerance^2)
-                    DA_Landmarks.x(g) = GlobalOOIs.x(m);   % Save x value
-                    DA_Landmarks.y(g) = GlobalOOIs.y(m);   % Save y value
-                    DA_Landmarks.ID(g) = n;    % Save current ID
-                    g = g + 1;
+                    if ~any(n == DA_Landmarks.ID(:))    % Hack to get rid of duplicate associate values
+                        DA_Landmarks.x(g) = LocalOOIs.centers.x(m);   % Save x value
+                        DA_Landmarks.y(g) = LocalOOIs.centers.y(m);   % Save y value
+                        LabelPos.x(g) = GlobalOOIs.x(m);
+                        LabelPos.y(g) = GlobalOOIs.y(m);
+                        DA_Landmarks.ID(g) = n;    % Save current ID
+                        g = g + 1;
+                    end
                 end
             end
         end
@@ -549,8 +669,7 @@ function gh = AssociateLandmarks(GlobalOOIs, LandmarkMap,gh)
     end
     
     if DA_Landmarks.N > 0
-        %set(gh, 'Position', [DA_Landmarks.x(:), DA_Landmarks.y(:)],'String',int2str(DA_Landmarks.ID(:)),'FontSize',8,'Color','g');
-        gh = text(DA_Landmarks.x(:) + 0.07, DA_Landmarks.y(:),int2str(DA_Landmarks.ID(:)),'FontSize',10,'Color','r');
+        gh = text(LabelPos.x(:) + 0.07, LabelPos.y(:),int2str(DA_Landmarks.ID(:)),'FontSize',10,'Color','r');
     end
 end
 
@@ -558,19 +677,66 @@ end
 % Localisation and Process Model Functions
 %-------------------------------------------------------------------------
 
-function X = Localise(X_Last,LandmarkMap)
+function Yaw = LocaliseYaw(X_Last,LandmarkMap)
         global DA_Landmarks;
         
         if (DA_Landmarks.N > 1)   %Triangulate and localise
-            X = fminsearch(@(X) Triangulate(X,LandmarkMap),[X_Last(1),X_Last(2),X_Last(3)]); % Triangulate and return x, y, phi
+            X0 = fminsearch(@(X) Triangulate(X,LandmarkMap),[X_Last(1),X_Last(2),X_Last(3)]);
+        else
+            X0 = X_Last;
+        end
+        
+        Yaw = X0(3);   % Only update yaw using triangulation not position
+end
+
+function X = Localise(X_Last,LandmarkMap)
+        global DA_Landmarks;
+        
+        phi = X_Last(3);
+        
+        if (DA_Landmarks.N == 1)   %Triangulate and localise
+            OptimFunc = @(X_Last) Triangulate(LandmarkMap,phi, X_Last);
+            X(1:2) = fminsearch(OptimFunc,[X_Last(1),X_Last(2)]);
+            X(3) = X_Last(3);
+        elseif (DA_Landmarks.N > 1)
+            OptimFunc = @(X_Last) MultiTriangulate(LandmarkMap,X_Last);
+            X = fminsearch(OptimFunc,[X_Last(1),X_Last(2),X_Last(3)]);
         else
             X = X_Last;
         end
-        
-        %X = X_Last;    % Uncomment to disable localisation
 end
 
-function F = Triangulate(X, LandmarkMap)
+function Cost = Triangulate(RealLandmarks,phi, X_Last)
+    global DA_Landmarks;
+    X_Last(3) = phi;
+    GlobalLandmarks = GlobalTransform(DA_Landmarks, X_Last);
+    
+    id = DA_Landmarks.ID(1);
+    error_x = GlobalLandmarks.x(1) - RealLandmarks.x(id);
+    error_y = GlobalLandmarks.y(1) - RealLandmarks.y(id);
+    
+    Cost = error_x^2 + error_y^2;
+end
+
+function Cost = MultiTriangulate(RealLandmarks,X_Last)
+    global DA_Landmarks;
+    
+    error_x = zeros(DA_Landmarks.N,1);
+    error_y = zeros(DA_Landmarks.N,1);
+    
+    GlobalLandmarks = GlobalTransform(DA_Landmarks, X_Last);
+    
+    for i = 1:DA_Landmarks.N
+        id = DA_Landmarks.ID(i);
+        
+        error_x(i) = GlobalLandmarks.x(i) - RealLandmarks.x(id);
+        error_y(i) = GlobalLandmarks.y(i) - RealLandmarks.y(id);
+    end
+
+    Cost = sqrt(sum(error_x(:).^2 + error_y(:).^2));
+end
+
+function F = Triangulateold(X, LandmarkMap)
     global DA_Landmarks;
     
     F = zeros(DA_Landmarks.N * 2, 1);
@@ -580,16 +746,16 @@ function F = Triangulate(X, LandmarkMap)
         id = DA_Landmarks.ID(i);
         
         mdx = DA_Landmarks.x(i) - X(1);
-        mdy = DA_Landmarks.y(i) + X(2);
+        mdy = DA_Landmarks.y(i) - X(2);
         
         M_Range = sqrt(mdx^2 + mdy^2);
-        M_Bearing = atan2(mdy, mdx) - X(3);
+        M_Bearing = atan(mdy/mdx);
         
         E_Range = sqrt(LandmarkMap.x(id)^2 + LandmarkMap.y(id)^2); 
-        E_Bearing = atan2(LandmarkMap.y(id), LandmarkMap.x(id));
+        E_Bearing = atan(LandmarkMap.y(id)/LandmarkMap.x(id));
         
-        F(u) = M_Range - E_Range;
-        F(u + 1) = M_Bearing - E_Bearing + pi/2;  
+        F(u) = abs(M_Range - E_Range);
+        F(u + 1) = abs(M_Bearing - E_Bearing);  
         u = u + 2;
     end
     
