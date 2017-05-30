@@ -10,6 +10,12 @@ function TCPRead()
     ip_address = '127.0.0.1';
     remote_port_cam = 15000;
     remote_port_imu = 14500;
+    remote_port_hex = 14000;
+    
+    t_hex = tcpip('127.0.0.1', 14000);
+    t_hex.ByteOrder = 'littleEndian';%Set Endian to convert
+    
+    fopen(t_hex);
     
     % Camera Variables
     width = 160;
@@ -76,7 +82,7 @@ function TCPRead()
     xlabel('y'); ylabel('x');
     
     % Global Frame plot
-    figure(5); clf(); hold on; axis equal
+    f = figure(5); clf(); hold on; axis equal
     GlobalMap.DepthScan = plot(0,0,'cyan.');
     GlobalMap.Localisation = plot(0,0,'r');
     GlobalMap.CurrentPos = plot(0,0,'black.','markersize',7);
@@ -85,6 +91,7 @@ function TCPRead()
     GlobalMap.DA_Labels_Map = text(0,0, ' ');
     GlobalMap.Landmarks = plot(0,0,'r.','markersize',15);   %Depth map at horizon scatterplot handle
     GlobalMap.LandmarksMap = plot(0,0,'black.','markersize',15);   %Depth map at horizon scatterplot handle
+    set(f, 'WindowButtonDownFcn', @clicker);
     axis([-2 2 -0.2 3.5]);
     title('Global Map');
     xlabel('y'); ylabel('x');
@@ -305,6 +312,8 @@ function TCPRead()
             set(GlobalMap.Heading,'xdata',X(1),'ydata',X(2),'Udata',0.3*cos(X(3)),'Vdata',0.3*sin(X(3)));
             
             k = k + 1;
+            
+            HexControl(0,0,0,0,t_hex);
             
             %----------------------------------------------------------------------
             % Process and Plot Occupancy Grid
@@ -861,4 +870,35 @@ function Plot_IMU(mh, imu, i)
     s = sprintf('Attitude_A Plot: Roll(r), Pitch(g)');
     set(mh.Title_Attitude_A, 'string', s);
 return;
+end
+
+function HexControl(RightVert, RightHor, LeftVert, LeftHor, t_hex)
+    %Specify Movement of Hexapod between -128 to 127
+
+    RV = int8(128);
+    RH = int8(128);
+    LV = int8(128);
+    LH = int8(128);
+    
+    RV = 128-RightVert;
+    RH = 128+RightHor;
+    LV = 128-LeftVert;
+    LH = 128-LeftHor;
+    
+    outgoing(1) = RV;
+    outgoing(2) = RH;
+    outgoing(3) = LV;
+    outgoing(4) = LH;
+    outgoing(5) = 0;
+    outgoing(6) = 0;
+                
+    fwrite(t_hex, outgoing);    
+end
+
+function clicker(h,~)
+    cursorPoint = get(gca, 'currentpoint');
+    global destination
+    
+    destination.x = cursorPoint(1)
+    destination.y = cursorPoint(2)
 end

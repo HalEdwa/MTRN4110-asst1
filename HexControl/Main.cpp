@@ -1,9 +1,12 @@
+
 #include <winsock2.h> 
 #include <stdio.h>
 #include <tchar.h>
 #include "SerialClass.h"	// Library described above
 #include <string>
 #include <chrono>
+#include <iostream>
+#include <bitset>
 
 /*Socket headers =======================================*/
 #undef UNICODE
@@ -17,7 +20,7 @@
 
 /*Socket Define and Global====================*/
 #define DEFAULT_BUFLEN 512
-#define DEFAULT_PORT "14500" //was 15000
+#define DEFAULT_PORT "14000"
 
 WSADATA wsaData;
 int iResult;
@@ -61,7 +64,7 @@ int TCP_ServerConfig() {
 
 	// Create a SOCKET for connecting to server
 	ListenSocket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
-	
+
 	if (ListenSocket == INVALID_SOCKET) {
 		printf("socket failed with error: %ld\n", WSAGetLastError());
 		freeaddrinfo(result);
@@ -110,44 +113,51 @@ int TCP_ServerConfig() {
 // application reads from the specified serial port and reports the collected data
 int _tmain(int argc, _TCHAR* argv[])
 {
-	Serial* SP = new Serial("COM3");    // adjust as needed
+	Serial* SP = new Serial("COM4");    // adjust as needed
 
 	if (SP->IsConnected())
 		printf("We're connected");
 
-	//
-	char incomingData[16] = "";			
-	int dataLength = 16;
+	char incomingData[6] = "";
+	char outgoingData[8] = "";
+	int dataLength = 8;
 	int readResult = 0;
+	int ch = 300;
 
 	TCP_ServerConfig();
 	int counter = 0;
-	int freq = 30;
+	int freq = 10;
 
 	while (SP->IsConnected())
 	{
 		auto currentTime = std::chrono::high_resolution_clock::now();
-		
-		if ((currentTime - lastTime1) > (std::chrono::milliseconds::duration(10))) {
-			lastTime1 = currentTime;
-			readResult = SP->ReadData(incomingData, dataLength);
+
+		iSendResult = recv(ClientSocket, (char*)incomingData, sizeof(incomingData), 0);
+
+		if (iSendResult == SOCKET_ERROR) {
+			printf("send failed with error: %d\n", WSAGetLastError());
+			closesocket(ClientSocket);
+			WSACleanup();
 		}
 
 		if ((currentTime - lastTime) > (std::chrono::milliseconds::duration(1000 / freq))) {
 			lastTime = currentTime;
 
-			counter++;
-
 			/*====== Send buffer ======*/
-			if (readResult == dataLength) {
-				iSendResult = send(ClientSocket, (char*)incomingData, sizeof(incomingData), 0);
-				if (iSendResult == SOCKET_ERROR) {
-					printf("send failed with error: %d\n", WSAGetLastError());
-					closesocket(ClientSocket);
-					WSACleanup();
-				}
-				counter = 0;
-			}
+			outgoingData[0] = 0xff;
+			outgoingData[1] = incomingData[0];
+			outgoingData[2] = incomingData[1];
+			outgoingData[3] = incomingData[2];
+			outgoingData[4] = incomingData[3];
+			outgoingData[5] = incomingData[4];
+			outgoingData[6] = incomingData[5];
+			outgoingData[7] = 0xff - (0xff & (incomingData[0] + incomingData[1] + incomingData[2] + incomingData[3]));
+			//memcpy(&outgoingData[1], &incomingData, 6 * sizeof(int8_t));
+
+			printf("%d %d %d %d %d %d %d %d\n", (uint8_t)outgoingData[0], (uint8_t)outgoingData[1], (uint8_t)outgoingData[2], (uint8_t)outgoingData[3],
+				(uint8_t)outgoingData[4], (uint8_t)outgoingData[5], (uint8_t)outgoingData[6], (uint8_t)outgoingData[7]);
+
+			readResult = SP->WriteData(outgoingData, dataLength);
 		}
 	}
 	return 0;
