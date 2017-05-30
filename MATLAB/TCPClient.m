@@ -15,13 +15,17 @@ function TCPRead()
     t_hex = tcpip('127.0.0.1', 14000);
     t_hex.ByteOrder = 'littleEndian';%Set Endian to convert
     
-    fopen(t_hex);
     
     % Camera Variables
     width = 160;
     height = 120;
-    Live = 1;
+    Live = 0;
+    ControllingHexapod = 0;
     CameraRead = 0;
+    
+    if Live == 1
+            fopen(t_hex);
+    end
     
     % IMU Variables
     Bias.Ax = -0.0175; Bias.Ay = -0.0868; Bias.Az = -1.0134;
@@ -188,7 +192,7 @@ function TCPRead()
         %----------------------------------------------------------------------
         %Receive and save incoming IMU data
         %----------------------------------------------------------------------
-        
+         
         if (false)%get(p, 'BytesAvailable') > 0 %(false)
             disp('Reading IMU...');
  
@@ -312,8 +316,11 @@ function TCPRead()
             set(GlobalMap.Heading,'xdata',X(1),'ydata',X(2),'Udata',0.3*cos(X(3)),'Vdata',0.3*sin(X(3)));
             
             k = k + 1;
+
+            if ControllingHexapod == 1
+                HexControl(0,0,0,0,t_hex);
+            end
             
-            HexControl(0,0,0,0,t_hex);
             
             %----------------------------------------------------------------------
             % Process and Plot Occupancy Grid
