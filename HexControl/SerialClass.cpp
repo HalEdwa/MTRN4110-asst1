@@ -38,7 +38,7 @@ Serial::Serial(const char *portName)
 	//We're not yet connected
 	this->connected = false;
 
-	const WCHAR FileFullPath[] = { L"COM5" };
+	const WCHAR FileFullPath[] = { L"COM6" };
 
 	//Try to connect to the given port throuh CreateFile
 	this->hSerial = CreateFile(FileFullPath,

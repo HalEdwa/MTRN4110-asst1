@@ -9,8 +9,8 @@ function TCPRead()
     % Camera Variables
     width = 160;
     height = 120;
-    Live = 0;
-    CameraRead = 0;
+    Live = 1;
+    CameraRead = 1;
     pathmode = 0;
     
     % Landmark map Variables
@@ -30,6 +30,9 @@ function TCPRead()
     
     it = 1;
     labels = text(0,0,' ');
+    
+    global state
+    state = 1;
     
     global destination
     destination.x = 0;
@@ -122,11 +125,11 @@ function TCPRead()
     
     t_hex = tcpip('127.0.0.1', remote_port_hex);
     t_hex.ByteOrder = 'littleEndian';%Set Endian to convert
-   % fopen(t_hex);
+    fopen(t_hex);
     
     t_arm = tcpip('127.0.0.1', remote_port_arm);
     t_arm.ByteOrder = 'littleEndian';%Set Endian to convert
-   % fopen(t_arm);
+    fopen(t_arm);
         
     % Wait for incoming bytes from Camera TCP
     if (Live == 1)   
@@ -208,11 +211,13 @@ function TCPRead()
             
             % Perform object classification from camera data
             OOIs = FindOOIs(DepthScan,LocalMap);
-           for i=1:OOIs.N
-              if sqrt(OOIs.centers(i).x^2 + OOIs.centers(i).y^2)<0.1
-                ArmControl(t_arm);
-              end
-           end
+            
+            for i=1:OOIs.N
+               if (sqrt((OOIs.centers.x(i))^2 + (OOIs.centers.y(i))^2)) < 0.25
+                 ArmControl(t_arm);
+               end
+            end
+           
             [GlobalOOIs, GlobalDepthScan] = TransformToGlobal(OOIs, DepthScan, X);   % Rotate and translate data by X
             
             delete(labels);
@@ -259,19 +264,6 @@ function TCPRead()
             og.addObservations(GlobalOOIs.x, GlobalOOIs.y, 0.12);
             og.visualise(guiH.og);
             og.decrement();
-            
-            [X_Index, Dest_Index] = GlobaltoOG(abs(X));
-            
-            %Run path generator on OG
-            %path = FindFastestRoute(og.Grid,X_Index,Dest_Index);
-            %GlobalPath = OGPathtoGlobal(path);
-            
-            %Plot GlobalPath
-            %set(GlobalMap.Path,'xdata',GlobalPath.x(:),'ydata',GlobalPath.y(:));
-            
-            %Update next point in path generation
-            %nextDest.x = GlobalPath.x(1);
-            %nextDest.y = GlobalPath.y(1);
         end
         
         if (Live == 1)
@@ -499,7 +491,7 @@ end
 
 function gh = AssociateLandmarks(GlobalOOIs, LocalOOIs, LandmarkMap,gh)
     global DA_Landmarks;
-    ID_Tolerance = 0.2;
+    ID_Tolerance = 0.12;
     
     DA_Landmarks.x = [];
     DA_Landmarks.y = [];
@@ -628,7 +620,7 @@ function [MV, MH, Rot] = PathFollower(X,setDest)
     end
     
     if (abs(pi/2 - X(3)) >= deg2rad(5))
-        Rot = -(40)*((pi/2 - X(3))/(abs(pi/2 - X(3))));
+        Rot = -(50)*((pi/2 - X(3))/(abs(pi/2 - X(3))));
     end
     
     MV = floor(MV);
@@ -649,12 +641,23 @@ function GlobalPath = OGPathtoGlobal(Path)
 end
 
 function ArmControl(t_arm)
-
-    %Sweep Left
-    Motor1Speed = int16(0);
-    Motor2Speed = int16(0);
-    Motor1Pos = int16(300);
-    Motor2Pos = int16(300);
+    global state
+    
+    if (state)
+        %Sweep Left
+        Motor1Speed = int16(0);
+        Motor2Speed = int16(0);
+        Motor1Pos = int16(195);
+        Motor2Pos = int16(195);
+    else
+        %Sweep Right
+        Motor1Speed = int16(0);
+        Motor2Speed = int16(0);
+        Motor1Pos = int16(0);
+        Motor2Pos = int16(0);
+    end
+    
+    state = ~state;
     
     Motor1Speed = (typecast(Motor1Speed, 'uint8'));
     Motor2Speed = (typecast(Motor2Speed, 'uint8'));
@@ -672,29 +675,5 @@ function ArmControl(t_arm)
     outgoing(9) = Motor2Pos(2);
     
     fwrite(t_arm, outgoing);
-    
-    %Sweep Right
-    Motor1Speed = int16(0);
-    Motor2Speed = int16(0);
-    Motor1Pos = int16(0);
-    Motor2Pos = int16(0);
-    
-    Motor1Speed = (typecast(Motor1Speed, 'uint8'));
-    Motor2Speed = (typecast(Motor2Speed, 'uint8'));
-    Motor1Pos = (typecast(Motor1Pos, 'uint8'));
-    Motor2Pos = (typecast(Motor2Pos, 'uint8'));
-        
-    outgoing(1) = 'c';
-    outgoing(2) = Motor1Speed(1);
-    outgoing(3) = Motor1Speed(2);
-    outgoing(4) = Motor2Speed(1);
-    outgoing(5) = Motor2Speed(2);
-    outgoing(6) = Motor1Pos(1);
-    outgoing(7) = Motor1Pos(2);
-    outgoing(8) = Motor2Pos(1);
-    outgoing(9) = Motor2Pos(2);
-    
-    fwrite(t_arm, outgoing);
-    
-
+    fprintf("Demon Slash of 1000 cuts of pain!");
 end
