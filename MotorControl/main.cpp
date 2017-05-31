@@ -19,7 +19,7 @@
 
 /*Socket Define and Global====================*/
 #define DEFAULT_BUFLEN 512
-#define DEFAULT_PORT "15000"
+#define DEFAULT_PORT "13000"
 
 WSADATA wsaData;
 int iResult;
@@ -112,7 +112,7 @@ int TCP_ServerConfig() {
 // application reads from the specified serial port and reports the collected data
 int _tmain(int argc, _TCHAR* argv[])
 {
-	Serial* SP = new Serial("COM4");    // adjust as needed
+	Serial* SP = new Serial("COM5");    // adjust as needed
 
 	if (SP->IsConnected())
 		printf("We're connected");
