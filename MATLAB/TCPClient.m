@@ -6,37 +6,23 @@ function TCPRead()
     
     clear   % Perform an initial clear
     
-    % TCP Variables
-    ip_address = '127.0.0.1';
-    remote_port_cam = 15000;
-    remote_port_imu = 14500;
-    remote_port_hex = 14000;
-    
-    t_hex = tcpip('127.0.0.1', 14000);
-    t_hex.ByteOrder = 'littleEndian';%Set Endian to convert
-    
-    
     % Camera Variables
     width = 160;
     height = 120;
-    Live = 0;
-    ControllingHexapod = 0;
+    Live = 1;
     CameraRead = 0;
-    
-    if Live == 1
-            fopen(t_hex);
-    end
-    
-    % IMU Variables
-    Bias.Ax = -0.0175; Bias.Ay = -0.0868; Bias.Az = -1.0134;
-    Bias.Gx = -1.8285; Bias.Gy = 2.5944; Bias.Gz = 1.3713;
-    IMU_data = struct('Attitude_G',[0, 0, pi/2],'Attitude_A',[0, 0],'Accel',[0, 0, 0],'Gyros',[0, 0, 0],'Dt',0,'TimeStamp',0);
+    pathmode = 0;
     
     % Landmark map Variables
     global DA_Landmarks;
-    LandmarkMap.x = [-1,0,1,-0.5,0.5,-1,0,1,-0.5,0.5,-1,0,1];
-    LandmarkMap.y = [0.5,0.5,0.5,1,1,1.5,1.5,1.5,2,2,2.5,2.5,2.5];
-    LandmarkMap.N = numel(LandmarkMap.x);
+    
+%    LandmarkMap.x = [-1,0,1,-0.5,0.5,-1,0,1,-0.5,0.5,-1,0,1];
+%    LandmarkMap.y = [0.5,0.5,0.5,1,1,1.5,1.5,1.5,2,2,2.5,2.5,2.5];
+%    LandmarkMap.N = numel(LandmarkMap.x);
+
+     LandmarkMap.x = [-1,    -0.5,   0,      0.5,    1,      1,      -1];
+     LandmarkMap.y = [1,   1,    1,    1,    1,    0.5,      0.5];
+     LandmarkMap.N = numel(LandmarkMap.x);
     
     % Localisation Variables
     X = [0;0;pi/2];
@@ -44,6 +30,13 @@ function TCPRead()
     
     it = 1;
     labels = text(0,0,' ');
+    
+    global destination
+    destination.x = 0;
+    destination.y = 0;
+    
+    nextDest.x = 0;
+    nextDest.y = 0;
     
     %-------------------------------------------------------------------------
     % Set up plot handles
@@ -89,66 +82,34 @@ function TCPRead()
     f = figure(5); clf(); hold on; axis equal
     GlobalMap.DepthScan = plot(0,0,'cyan.');
     GlobalMap.Localisation = plot(0,0,'r');
-    GlobalMap.CurrentPos = plot(0,0,'black.','markersize',7);
+    GlobalMap.CurrentPos = plot(0,0,'blue.','markersize',12);
     GlobalMap.Heading = quiver(0,0,0,0,'magenta');
     GlobalMap.DA_Labels = text(0,0,' ');
     GlobalMap.DA_Labels_Map = text(0,0, ' ');
     GlobalMap.Landmarks = plot(0,0,'r.','markersize',15);   %Depth map at horizon scatterplot handle
     GlobalMap.LandmarksMap = plot(0,0,'black.','markersize',15);   %Depth map at horizon scatterplot handle
+    GlobalMap.Destination = plot(0,0,'magenta.','markersize',15);
+    GlobalMap.Path = plot(0,0,'g');
     set(f, 'WindowButtonDownFcn', @clicker);
     axis([-2 2 -0.2 3.5]);
     title('Global Map');
     xlabel('y'); ylabel('x');
-   
-    
-%     figure(7); clf(); hold on;
-%     Handles.Wx = plot(0,0,'r');
-%     Handles.Wy = plot(0,0,'g');
-%     Handles.Wz = plot(0,0,'b');
-%     Handles.Title_Gyros = title('');
-%     ylim([-800,800]);
-%     xlabel('Time (Seconds)')
-%     ylabel('Rate of Yaw (Degrees/Sec)')
-%     zoom on; grid on;
-%     
-%     figure(8); clf(); hold on;
-%     Handles.Ax = plot(0,0,'r');
-%     Handles.Ay = plot(0,0,'g');
-%     Handles.Az = plot(0,0,'b');
-%     Handles.Title_Accel = title('');
-%     ylim([-15,15]);
-%     xlabel('Time (Seconds)')
-%     ylabel('Linear Acceleration (M/Sec^2)')
-%     zoom on; grid on;
-    
-%     figure(9); clf(); hold on;
-%     Handles.Roll_G = plot(0,0,'r');
-%     Handles.Pitch_G = plot(0,0,'g');
-%     Handles.Yaw_G = plot(0,0,'b');
-%     Handles.Title_Attitude_G = title('');
-%     ylim([-100, 100]);
-%     xlabel('Time (Seconds)')
-%     ylabel('Attitude (Degrees)')
-%     zoom on; grid on;
-%     
-%     figure(10); clf(); hold on;
-%     Handles.Roll_A = plot(0,0,'r');
-%     Handles.Pitch_A = plot(0,0,'g');
-%     Handles.Title_Attitude_A = title('');
-%     ylim([-100, 100]);
-%     xlabel('Time (Seconds)')
-%     ylabel('Attitude (Degrees)')
-%     zoom on; grid on;
-    
+
     % Plot known Landmark Map on global Frame
-     set(GlobalMap.LandmarksMap, 'xdata', LandmarkMap.x(:), 'ydata', LandmarkMap.y(:));
+    set(GlobalMap.LandmarksMap, 'xdata', LandmarkMap.x(:), 'ydata', LandmarkMap.y(:));
+    
     for i = 1:LandmarkMap.N
         GlobalMap.DA_Labels_Map(i) = text(double(LandmarkMap.x(i) - 0.03),double(LandmarkMap.y(i) + 0.15),int2str(i),'FontSize',8,'Color','black');
     end
-
+    
     %-------------------------------------------------------------------------
     % Connect to Servers
     %-------------------------------------------------------------------------
+    
+    % TCP Variables
+    ip_address = '127.0.0.1';
+    remote_port_cam = 15000;
+    remote_port_hex = 14000;
     
     % Connect to Camera server
     if (Live == 1)
@@ -158,16 +119,9 @@ function TCPRead()
         fopen(t);
     end
     
-% %     Connect to IMU server
-%     p = tcpip(ip_address, remote_port_imu);
-%     p.ByteOrder = 'littleEndian';   %Set Endian to convert
-%     fopen(p);   pause(1); 
-%     
-%     % Wait for incoming bytes from IMU TCP
-%     while p.BytesAvailable == 0
-%         pause(1)
-%         disp('waiting for initial imu bytes...');
-%     end
+    t_hex = tcpip('127.0.0.1', remote_port_hex);
+    t_hex.ByteOrder = 'littleEndian';%Set Endian to convert
+    fopen(t_hex);
         
     % Wait for incoming bytes from Camera TCP
     if (Live == 1)   
@@ -186,44 +140,7 @@ function TCPRead()
     %-------------------------------------------------------------------------
     % Begin main program loop
     %-------------------------------------------------------------------------
-    counter = 1;
-    
     while (true)
-        %----------------------------------------------------------------------
-        %Receive and save incoming IMU data
-        %----------------------------------------------------------------------
-         
-        if (false)%get(p, 'BytesAvailable') > 0 %(false)
-            disp('Reading IMU...');
- 
-            IMU = Parse_IMU_Serial(p);   % Read over TCP and save IMU values
-            
-            % Save data into a history buffer applying bias removal
-            IMU_data.Accel(counter, 1) = IMU.Ax - Bias.Ax;    
-            IMU_data.Accel(counter, 2) = IMU.Ay - Bias.Ay;
-            IMU_data.Accel(counter, 3) = IMU.Az - Bias.Az;
-            IMU_data.Gyros(counter, 1) = (IMU.Gx - Bias.Gx)*pi/180;
-            IMU_data.Gyros(counter, 2) = (IMU.Gy - Bias.Gy)*pi/180;
-            IMU_data.Gyros(counter, 3) = (IMU.Gz - Bias.Gz)*pi/180;
-            IMU_data.Dt(counter) = IMU.Dt;
-
-            if (counter > 1)
-               IMU_data.TimeStamp(counter) = IMU_data.TimeStamp(counter - 1) + IMU.Dt;
-            else 
-               IMU_data.TimeStamp(counter) = 0;
-            end
- 
-            %Calculate new attitude (Using Gyroscope + Using Accelometer)
-            IMU_data.Attitude_G(counter + 1,:) = ProcessAttitude_Gyros(IMU_data.Gyros(counter,:), IMU_data.Dt(counter), IMU_data.Attitude_G(counter,:));
-            IMU_data.Attitude_A(counter + 1,:) = ProcessAttitude_Accel(IMU_data.Accel(counter,:), IMU_data.Attitude_A(counter,:));
-            
-            % Update vehicle yaw based on accelometer pitch and roll + current vehicle yaw 
-            %X(3) = DeadReckoningYaw(IMU_data.Gyros(counter,:), IMU_data.Dt(counter), IMU_data.Attitude_A(counter,1), IMU_data.Attitude_A(counter,2), X(3)); % Update vehicle pose based on gyros
-            
-            Plot_IMU(Handles, IMU_data, counter);
-            counter = counter + 1;
-        end
-        
         %----------------------------------------------------------------------
         %Receive and save incoming Camera data
         %----------------------------------------------------------------------
@@ -255,11 +172,11 @@ function TCPRead()
         
         %----------------------------------------------------------------------
         % Process incoming camera frame and triangulate pose
-        %----------------------------------------------------------------------
+        %---------------------------------------------------------------------
         
         if (Live == 0 || ((Live == 1) && CameraRead == 1))
             xFilter = x;  % Save all depth values
-            xFilter(xFilter > 1500) = -1;    % Flag depths that are too far
+            xFilter(xFilter > 2000) = -1;    % Flag depths that are too far
             xFilter(xFilter < 0) = -1;   % Flag negative depths
 
             % Filter out invalid data
@@ -300,39 +217,56 @@ function TCPRead()
             %----------------------------------------------------------------------
             % Process Vehicle Localisation
             %----------------------------------------------------------------------
-            %Ranges = zeros(361,1);  % Replace with scan data
-            %LaserScan = GetLaserScan(dataL);
-            
-            %VehiclePosition = FindVehiclePosition(LaserScan, ScanMap, GlobalMap.LaserScan);   % Estimate vehicle position from LIDAR data
-            %[X(1), X(2)] = UpdatePosition(VehiclePosition);  % Update position (X(1), X(2) based on lidar scan
-            %X(3) = LocaliseYaw(X,LandmarkMap);    % Update yaw (X(3)) based on data associated landmarks
-            
+
             X = Localise(X,LandmarkMap);    % Part 3 original localisation
             Pose(:,k) = X;
             
-            % Display Results of localisation
-            fprintf('Pose: X = %3f, Y = %3f, Theta = %3f\n', Pose(1,k), Pose(2,k), rad2deg((Pose(3,k))));	% Print current pose 
-            set(GlobalMap.Localisation,'xdata',Pose(1,1:k),'ydata',Pose(2,1:k));  %Global Frame Plot of Vehicle Pose
-            set(GlobalMap.Heading,'xdata',X(1),'ydata',X(2),'Udata',0.3*cos(X(3)),'Vdata',0.3*sin(X(3)));
-            
-            k = k + 1;
-
-            if ControllingHexapod == 1
-                HexControl(0,0,0,0,t_hex);
+            if pathmode == 1
+                setDest = nextDest;
+            else
+                setDest = destination;
             end
             
+            [MV, MH, Rot] = PathFollower(X,setDest);
+            HexControl(0,Rot,MV,MH,t_hex);
+            %HexControl(0,0,0,0,t_hex);
+
+            % Display Results of localisation
+            fprintf('Pose: X = %3f, Y = %3f, Theta = %3f\n', Pose(1,k), Pose(2,k), rad2deg((Pose(3,k))));	% Print current pose 
+            fprintf('Rot = %3f; MV_Command = %d; MH_Command = %d;\n\n', Rot, MV, MH);
+            
+            set(GlobalMap.Localisation,'xdata',Pose(1,k),'ydata',Pose(2,k));  %Global Frame Plot of Vehicle Pose
+            set(GlobalMap.Heading,'xdata',X(1),'ydata',X(2),'Udata',0.3*cos(X(3)),'Vdata',0.3*sin(X(3)));
+            set(GlobalMap.CurrentPos,'xdata',Pose(1,k),'ydata', Pose(2,k));
+            set(GlobalMap.Destination,'xdata',destination.x,'ydata',destination.y);
+            
+            k = k + 1;
             
             %----------------------------------------------------------------------
             % Process and Plot Occupancy Grid
             %----------------------------------------------------------------------
             
-            og.addObservations(-DepthScan(1,:), DepthScan(2,:));
+            %Populate occupancy grid
+            og.addObservations(GlobalOOIs.x, GlobalOOIs.y, 0.12);
             og.visualise(guiH.og);
             og.decrement();
+            
+            [X_Index, Dest_Index] = GlobaltoOG(abs(X));
+            
+            %Run path generator on OG
+            %path = FindFastestRoute(og.Grid,X_Index,Dest_Index);
+            %GlobalPath = OGPathtoGlobal(path);
+            
+            %Plot GlobalPath
+            %set(GlobalMap.Path,'xdata',GlobalPath.x(:),'ydata',GlobalPath.y(:));
+            
+            %Update next point in path generation
+            %nextDest.x = GlobalPath.x(1);
+            %nextDest.y = GlobalPath.y(1);
         end
         
         if (Live == 1)
-            pause(0.001);   % Short pause to allow rotation inputs for plotting
+            pause(0.01);   % Short pause to allow rotation inputs for plotting
         else
             pause(0.2); % Longer pause to set recorded data reading in framerate
         end
@@ -430,103 +364,6 @@ end
 %-------------------------------------------------------------------------
 % Classification and Data Association
 %-------------------------------------------------------------------------
-
-function [LaserScan, intensities] = GetLaserScan(scan)
-    anglesDeg = [0:360]'*0.5;      % angles in degrees
-    anglesRad = anglesDeg/180*pi;   % angles in radians
-    
-    % scan data is provided as a array of class uint16, which encode range
-    % and intensity (that is the way the sensor provides the data, in that
-    % mode of operation)
-    
-    MaskLow13Bits = uint16(2^13 - 1);   % Set 13 bit mask, to extract range data
-    MaskHigh3Bits = bitshift(uint16(2^3 - 1), 13); % Set top 3 bit mask for intensity
-    
-    rangesCM = bitand(scan, MaskLow13Bits); % range vector in CMs
-    ranges = 0.01*double(rangesCM); % range vector in meters as float
-    intensities = bitand(scan, MaskHigh3Bits); % intensity vector
-    
-    % Convert POLAR to Cartesian co-ords
-    [LaserScan(1), LaserScan(2)] = pol2cart(anglesRad, ranges);
-end
-
-function VehiclePosition = FindVehiclePosition(X,LaserScan,intensities,lh,gh)
-    X = LaserScan(1,:);
-    Y = LaserScan(2,:);
-    
-    OOIs.N = 0;             % scalar for number of OOIs detected
-    OOIs.Colors = [];       % Vector 1 x N for Color of each OOI
-    OOIs.Centers = [];      % Matrix of size 2 x N, with X,Y coords for center of OOI
-    OOIs.Diameters = [];    % Vector 1 x N for diam of each OOI
-    
-    clusters.N = 1;
-    clusters.start = zeros(1,361);  %index of cluster starts
-    clusters.end = zeros(1,361);    %index of cluster ends
-    
-    clusters.start(1) = 1;          %index of first cluster starts at 1
-    
-    % Find clusters
-    for i = 2:361
-       if sqrt((X(i)-X(i-1))^2 + (Y(i)-Y(i-1))^2) > 0.10
-            clusters.end(clusters.N) = i-1;
-            clusters.start(clusters.N + 1) = i;
-            clusters.N = clusters.N + 1;
-       end 
-    end
-    
-    clusters.end(clusters.N) = 361; %index of last cluster ends at 361
-    
-    %Detect diameters - hacky approximation start - end
-    for i = 1:clusters.N
-       iStart = clusters.start(i);
-       iEnd = clusters.end(i);
-       dist = sqrt((X(iStart)-X(iEnd))^2 + (Y(iStart)-Y(iEnd))^2);
-       
-       % If distances between start and end points are within range,
-       % register as OOI
-       if (dist >= 0.05) && (dist <= 0.20)
-           
-           %Increment OOI count
-           OOIs.N = OOIs.N + 1;
-           
-           %Save Diameter
-           OOIs.Diameters(OOIs.N) = dist;
-           
-           %Scan to see if cluster contains pixel with high intensity
-           clusterIntensities = intensities(iStart:iEnd);
-           
-           if find(clusterIntensities > 0)
-              OOIs.Colors(OOIs.N) = 1;
-           else
-              OOIs.Colors(OOIs.N) = 0;
-           end
-           
-           %Add OOI center data
-           OOIs.Centers(:, OOIs.N) = [(X(iStart)+X(iEnd))/2, (Y(iStart)+Y(iEnd))/2];
-       end
-    end
-    
-    if OOIs.N > 0
-       Dist = (X(1) - OOIs.Centers(1,OOIs.Colors == 1)).^2 + (X(2) - OOIs.Centers(2,OOIs.Colors == 1)).^2;  
-       
-       if size(Dist) > 0
-           % If at least one OOI has at least intense point pick closest to current position
-           VehiclePosition(1) = OOIs.Centers(1,min(Dist(:)));
-           VehiclePosition(2) = OOIs.Centers(2,min(Dist(:)));
-       else
-           % If no OOIs have at least one intense point set to last known position
-           VehiclePosition(1) = X(1);
-           VehiclePosition(2) = X(2);
-       end
-    else 
-       % If no OOIs found set to last known position
-       VehiclePosition(1) = X(1);
-       VehiclePosition(2) = X(2);
-    end
-    
-    set(lh, 'xdata', X(:), 'ydata', Y(:));
-    set(gh, 'xdata', VehiclePosition(1), 'ydata', VehiclePosition(2));
-end
 
 function OOIs = FindOOIs(DepthScan,h)
     x = DepthScan(1,:);
@@ -693,18 +530,6 @@ end
 % Localisation and Process Model Functions
 %-------------------------------------------------------------------------
 
-function Yaw = LocaliseYaw(X_Last,LandmarkMap)
-        global DA_Landmarks;
-        
-        if (DA_Landmarks.N > 1)   %Triangulate and localise
-            X0 = fminsearch(@(X) Triangulate(X,LandmarkMap),[X_Last(1),X_Last(2),X_Last(3)]);
-        else
-            X0 = X_Last;
-        end
-        
-        Yaw = X0(3);   % Only update yaw using triangulation not position
-end
-
 function X = Localise(X_Last,LandmarkMap)
         global DA_Landmarks;
         
@@ -752,141 +577,8 @@ function Cost = MultiTriangulate(RealLandmarks,X_Last)
     Cost = sqrt(sum(error_x(:).^2 + error_y(:).^2));
 end
 
-function F = Triangulateold(X, LandmarkMap)
-    global DA_Landmarks;
-    
-    F = zeros(DA_Landmarks.N * 2, 1);
-    u = 1;
-    
-    for i = 1:DA_Landmarks.N
-        id = DA_Landmarks.ID(i);
-        
-        mdx = DA_Landmarks.x(i) - X(1);
-        mdy = DA_Landmarks.y(i) - X(2);
-        
-        M_Range = sqrt(mdx^2 + mdy^2);
-        M_Bearing = atan(mdy/mdx);
-        
-        E_Range = sqrt(LandmarkMap.x(id)^2 + LandmarkMap.y(id)^2); 
-        E_Bearing = atan(LandmarkMap.y(id)/LandmarkMap.x(id));
-        
-        F(u) = abs(M_Range - E_Range);
-        F(u + 1) = abs(M_Bearing - E_Bearing);  
-        u = u + 2;
-    end
-    
-    F = sum(F.^2);
-end
-
-function Yaw = DeadReckoningYaw(gyros, dt, CurrentRoll, CurrentPitch, CurrentYaw)
-    wx = gyros(1);  r = CurrentRoll;
-    wy = gyros(2);  p = CurrentPitch;
-    wz = gyros(3);  y = CurrentYaw;
-    
-    if (~isnan(wy) && ~isnan(wz)) % If data is valid
-        Yaw = y + dt*((wy*sin(r) + wz*cos(r))/cos(p));
-    else
-        Yaw = CurrentYaw;
-    end
-    
-    rad2deg(Yaw)
-end
-
-%-------------------------------------------------------------------------
-% IMU Functions
-%-------------------------------------------------------------------------
-
-function imuRaw = Parse_IMU_Serial(t) 
-    imuRaw = struct('Ax', 0, 'Ay', 0, 'Az',0, 'Gx',0,'Gy',0,'Gz',0, 'Dt', 0);
-    
-    aRange = 19.6;
-    aResolution = 10;
-    gScale = 14.375;
-    
-    convert_a = aRange/2^(aResolution-1);
-    convert_g = (1/gScale);
-    
-    recvBuff = fread(t,8,'int16');
-    
-    if(recvBuff(1) == 18500)
-        %Acceleration in m/s^2
-        imuRaw.Ax = recvBuff(2)*convert_a;
-        imuRaw.Ay = recvBuff(3)*convert_a;
-        imuRaw.Az = recvBuff(4)*convert_a;
-        
-        %Angular Rates in Degrees/s
-        imuRaw.Gx = recvBuff(5)*convert_g;
-        imuRaw.Gy = recvBuff(6)*convert_g;
-        imuRaw.Gz = recvBuff(7)*convert_g;
-        imuRaw.Dt = recvBuff(8)/1000;
-    end
-    return;
-end
-
-function NewAttitude = ProcessAttitude_Gyros(gyros, dt, CurrentAttitude)
-    wx = gyros(1);  r = CurrentAttitude(1);
-    wy = gyros(2);  p = CurrentAttitude(2);
-    wz = gyros(3);  y = CurrentAttitude(3);
-    
-    if (~isnan(wx) && ~isnan(wy) && ~isnan(wz)) % If data is valid
-        roll = r + dt*(wx + (wy*sin(r) + wz*cos(r))*tan(p)); 
-        pitch = p + dt*(wy*cos(r) - wz*sin(r));
-        yaw = y + dt*((wy*sin(r) + wz*cos(r))/cos(p));
-        NewAttitude = [roll, pitch, yaw]; %new global Roll, Pitch, Yaw (at time t+dt)
-    else
-        NewAttitude = CurrentAttitude;
-    end
-end
-
-function NewAttitude = ProcessAttitude_Accel(accel, CurrentAttitude)
-    ax = accel(1);
-    ay = accel(2);
-    az = accel(3);
- 
-    if (~isnan(ax) && ~isnan(ay) && ~isnan(az)) % Is data valid
-        pitch = atan(-ax/az);
-        roll = atan(ay/sqrt(ax^2 + az^2));
-
-        NewAttitude = [roll, pitch]; %new global Roll, Pitch (at time t+dt)
-    else
-         NewAttitude = CurrentAttitude;
-    end
-end
-
-function Plot_IMU(mh, imu, i)  
-%     set(mh.Wx, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Gyros(1:i,1)*(180/pi));
-%     set(mh.Wy, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Gyros(1:i,2)*(180/pi));
-%     set(mh.Wz, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Gyros(1:i,3)*(180/pi));
-%     s = sprintf('Gyroscope Plot: x(r), y(g), z(b)');
-%     set(mh.Title_Gyros, 'string', s);
-%     
-%     set(mh.Ax, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Accel(1:i,1));
-%     set(mh.Ay, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Accel(1:i,2));
-%     set(mh.Az, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Accel(1:i,3));
-%     s = sprintf('Accelerometer Plot: x(r), y(g), z(b)');
-%     set(mh.Title_Accel, 'string', s);
-    
-    set(mh.Roll_G, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Attitude_G(1:i,1)*4*(180/pi));
-    set(mh.Pitch_G, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Attitude_G(1:i,2)*4*(180/pi));
-    set(mh.Yaw_G, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Attitude_G(1:i,3)*4*(180/pi));
-    s = sprintf('Attitude_G Plot: Roll(r), Pitch(g), Yaw(b)');
-    set(mh.Title_Attitude_G, 'string', s);
-    
-    set(mh.Roll_A, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Attitude_A(1:i,1)*(180/pi));
-    set(mh.Pitch_A, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Attitude_A(1:i,2)*(180/pi));
-    s = sprintf('Attitude_A Plot: Roll(r), Pitch(g)');
-    set(mh.Title_Attitude_A, 'string', s);
-return;
-end
-
 function HexControl(RightVert, RightHor, LeftVert, LeftHor, t_hex)
     %Specify Movement of Hexapod between -128 to 127
-
-    RV = int8(128);
-    RH = int8(128);
-    LV = int8(128);
-    LH = int8(128);
-    
     RV = 128-RightVert;
     RH = 128+RightHor;
     LV = 128-LeftVert;
@@ -906,6 +598,43 @@ function clicker(h,~)
     cursorPoint = get(gca, 'currentpoint');
     global destination
     
-    destination.x = cursorPoint(1)
-    destination.y = cursorPoint(2)
+    destination.x = cursorPoint(1,1)
+    destination.y = cursorPoint(1,2)
+end
+
+function [MV, MH, Rot] = PathFollower(X,setDest)   
+    MV = 0;
+    MH = 0;
+    Rot = 0;
+    
+    destinationTol = 0.07;
+    speed = 70;
+    
+    if (abs(setDest.x - X(1)) >= destinationTol)
+        MH = speed*((setDest.x - X(1))/(abs(setDest.x - X(1))));
+    end
+    
+    if (abs(setDest.y - X(2)) >= destinationTol)
+        MV = speed*((setDest.y - X(2))/(abs(setDest.y - X(2))));
+    end
+    
+    if (abs(pi/2 - X(3)) >= deg2rad(5))
+        Rot = -(40)*((pi/2 - X(3))/(abs(pi/2 - X(3))));
+    end
+    
+    MV = floor(MV);
+    MH = floor(MH);
+    Rot = floor(Rot);
+end
+
+function [OG_Index_Dest, OG_Index_Pos] = GlobaltoOG(X)
+    global destination
+    
+    OG_Index_Dest = floor(((destination.x + 1.5) + 60 * destination.y) / 0.05);
+    OG_Index_Pos = floor(((X(1) + 1.5) + 60 * X(2)) / 0.05);
+end
+
+function GlobalPath = OGPathtoGlobal(Path)
+    GlobalPath.y = Path(:,1).* 0.05;
+    GlobalPath.x = Path(:,2).* 0.05 - 1.5;
 end
