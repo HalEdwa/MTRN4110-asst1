@@ -14,6 +14,7 @@ classdef OccupancyGrid<handle
         decrMultiplier = 0.8;
         
         fov = 0.5*75*pi/180;%div by 2 because it's half the fov
+        visionDepth = 2;%how far can the robot see(m)
     end
     
     methods
@@ -48,16 +49,35 @@ classdef OccupancyGrid<handle
             pose(2) = round(pose(2)/obj.Resolution);
             obj.Pose = pose;
             
-            for y = pose(2): size(obj.Grid, 1)
-                for x = (-round((y - pose(2))*sin(obj.fov)) : round((y - pose(2))*sin(obj.fov))) + pose(1)
-                    if x <= 0 || x > size(obj.Grid, 1)
-                        continue
-                    end
-%                     plot(x, y, 'r*');
-                    %these points are inside the fov of the robot
-                    obj.Grid(y, x) = obj.Grid(y, x) - obj.decrAmount;
-                end
-            end
+            x = pose(1);
+            y = pose(2);
+            theta = pose(3);
+            %define polygon roi within which to decrement points
+            roi = zeros(3*2, 1);
+            roi(1:2) = [x, y];
+            depth = obj.visionDepth / obj.Resolution;
+            roi(3) = x + depth*cos(theta - obj.fov);
+            roi(4) = y + depth*sin(theta - obj.fov);
+            roi(5) = x + depth*cos(theta + obj.fov);
+            roi(6) = y + depth*sin(theta + obj.fov);
+            decrMask = zeros(size(obj.Grid));
+            shapeInserter = vision.ShapeInserter('Shape','Polygons', 'BorderColor', 'white','Fill', true, 'FillColor', 'white');
+            decrMask = shapeInserter(decrMask, roi);
+%             figure(2);
+%             surf(decrMask);
+            decrMask(decrMask > 0) = obj.decrAmount;
+            obj.Grid = obj.Grid - decrMask;
+            
+%             for y = 1: size(obj.Grid, 1)
+%                 for x = (-round((y - pose(2))*sin(obj.fov)) : round((y - pose(2))*sin(obj.fov))) + pose(1)
+%                     if x <= 0 || x > size(obj.Grid, 1)
+%                         continue
+%                     end
+% %                     plot(x, y, 'r*');
+%                     %these points are inside the fov of the robot
+%                     obj.Grid(y, x) = obj.Grid(y, x) - obj.decrAmount;
+%                 end
+%             end
             
             obj.Grid(obj.Grid< 0) = 0;
         end
