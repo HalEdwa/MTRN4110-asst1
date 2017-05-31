@@ -19,7 +19,7 @@
 
 /*Socket Define and Global====================*/
 #define DEFAULT_BUFLEN 512
-#define DEFAULT_PORT "15000"
+#define DEFAULT_PORT "13000"
 
 WSADATA wsaData;
 int iResult;

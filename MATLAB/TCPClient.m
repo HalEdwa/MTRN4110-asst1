@@ -9,7 +9,7 @@ function TCPRead()
     % Camera Variables
     width = 160;
     height = 120;
-    Live = 1;
+    Live = 0;
     CameraRead = 0;
     pathmode = 0;
     
@@ -110,6 +110,7 @@ function TCPRead()
     ip_address = '127.0.0.1';
     remote_port_cam = 15000;
     remote_port_hex = 14000;
+    remote_port_arm = 13000;
     
     % Connect to Camera server
     if (Live == 1)
@@ -121,7 +122,11 @@ function TCPRead()
     
     t_hex = tcpip('127.0.0.1', remote_port_hex);
     t_hex.ByteOrder = 'littleEndian';%Set Endian to convert
-    fopen(t_hex);
+   % fopen(t_hex);
+    
+    t_arm = tcpip('127.0.0.1', remote_port_arm);
+    t_arm.ByteOrder = 'littleEndian';%Set Endian to convert
+   % fopen(t_arm);
         
     % Wait for incoming bytes from Camera TCP
     if (Live == 1)   
@@ -203,7 +208,11 @@ function TCPRead()
             
             % Perform object classification from camera data
             OOIs = FindOOIs(DepthScan,LocalMap);
-            
+           for i=1:OOIs.N
+              if sqrt(OOIs.centers(i).x^2 + OOIs.centers(i).y^2)<0.1
+                ArmControl(t_arm);
+              end
+           end
             [GlobalOOIs, GlobalDepthScan] = TransformToGlobal(OOIs, DepthScan, X);   % Rotate and translate data by X
             
             delete(labels);
@@ -637,4 +646,55 @@ end
 function GlobalPath = OGPathtoGlobal(Path)
     GlobalPath.y = Path(:,1).* 0.05;
     GlobalPath.x = Path(:,2).* 0.05 - 1.5;
+end
+
+function ArmControl(t_arm)
+
+    %Sweep Left
+    Motor1Speed = int16(0);
+    Motor2Speed = int16(0);
+    Motor1Pos = int16(300);
+    Motor2Pos = int16(300);
+    
+    Motor1Speed = (typecast(Motor1Speed, 'uint8'));
+    Motor2Speed = (typecast(Motor2Speed, 'uint8'));
+    Motor1Pos = (typecast(Motor1Pos, 'uint8'));
+    Motor2Pos = (typecast(Motor2Pos, 'uint8'));
+        
+    outgoing(1) = 'c';
+    outgoing(2) = Motor1Speed(1);
+    outgoing(3) = Motor1Speed(2);
+    outgoing(4) = Motor2Speed(1);
+    outgoing(5) = Motor2Speed(2);
+    outgoing(6) = Motor1Pos(1);
+    outgoing(7) = Motor1Pos(2);
+    outgoing(8) = Motor2Pos(1);
+    outgoing(9) = Motor2Pos(2);
+    
+    fwrite(t_arm, outgoing);
+    
+    %Sweep Right
+    Motor1Speed = int16(0);
+    Motor2Speed = int16(0);
+    Motor1Pos = int16(0);
+    Motor2Pos = int16(0);
+    
+    Motor1Speed = (typecast(Motor1Speed, 'uint8'));
+    Motor2Speed = (typecast(Motor2Speed, 'uint8'));
+    Motor1Pos = (typecast(Motor1Pos, 'uint8'));
+    Motor2Pos = (typecast(Motor2Pos, 'uint8'));
+        
+    outgoing(1) = 'c';
+    outgoing(2) = Motor1Speed(1);
+    outgoing(3) = Motor1Speed(2);
+    outgoing(4) = Motor2Speed(1);
+    outgoing(5) = Motor2Speed(2);
+    outgoing(6) = Motor1Pos(1);
+    outgoing(7) = Motor1Pos(2);
+    outgoing(8) = Motor2Pos(1);
+    outgoing(9) = Motor2Pos(2);
+    
+    fwrite(t_arm, outgoing);
+    
+
 end
