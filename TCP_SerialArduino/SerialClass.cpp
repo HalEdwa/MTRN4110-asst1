@@ -38,10 +38,10 @@ Serial::Serial(const char *portName)
 	//We're not yet connected
 	this->connected = false;
 
-	const WCHAR FileFullPath[] = { L"COM6" };
+	const WCHAR FileFullPath[] = { L"COM4" };
 
 	//Try to connect to the given port throuh CreateFile
-	this->hSerial = CreateFile((LPCSTR)FileFullPath,
+	this->hSerial = CreateFile(FileFullPath,
 		GENERIC_READ | GENERIC_WRITE,
 		0,
 		NULL,

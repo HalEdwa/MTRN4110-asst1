@@ -30,10 +30,12 @@ function TCPRead()
     
     % Landmark map Variables
     global DA_Landmarks;
-    LandmarkMap.x = [-1,0,1,-0.5,0.5,-1,0,1,-0.5,0.5,-1,0,1];
-    LandmarkMap.y = [0.5,0.5,0.5,1,1,1.5,1.5,1.5,2,2,2.5,2.5,2.5];
+%     LandmarkMap.x = [-1,0,1,-0.5,0.5,-1,0,1,-0.5,0.5,-1,0,1];
+%     LandmarkMap.y = [0.5,0.5,0.5,1,1,1.5,1.5,1.5,2,2,2.5,2.5,2.5];
+%     LandmarkMap.N = numel(LandmarkMap.x);
+    LandmarkMap.x = [-1,    -0.5,   0,      0.5,    1,      1,      -1];
+    LandmarkMap.y = [1,   1,    1,    1,    1,    0.5,      0.5];
     LandmarkMap.N = numel(LandmarkMap.x);
-    
     % Localisation Variables
     X = [0;0;pi/2];
     k = 1;
@@ -41,6 +43,9 @@ function TCPRead()
     it = 1;
     labels = text(0,0,' ');
     
+    global destination
+    destination.x = 0;
+    destination.y = 0;
     %-------------------------------------------------------------------------
     % Set up plot handles
     %-------------------------------------------------------------------------
@@ -85,17 +90,17 @@ function TCPRead()
     f = figure(5); clf(); hold on; axis equal
     GlobalMap.DepthScan = plot(0,0,'cyan.');
     GlobalMap.Localisation = plot(0,0,'r');
-    GlobalMap.CurrentPos = plot(0,0,'black.','markersize',7);
+    GlobalMap.CurrentPos = plot(0,0,'blue.','markersize',12);
     GlobalMap.Heading = quiver(0,0,0,0,'magenta');
     GlobalMap.DA_Labels = text(0,0,' ');
     GlobalMap.DA_Labels_Map = text(0,0, ' ');
     GlobalMap.Landmarks = plot(0,0,'r.','markersize',15);   %Depth map at horizon scatterplot handle
     GlobalMap.LandmarksMap = plot(0,0,'black.','markersize',15);   %Depth map at horizon scatterplot handle
+    GlobalMap.Destination = plot(0,0,'magenta.','markersize',15);
     set(f, 'WindowButtonDownFcn', @clicker);
     axis([-2 2 -0.2 3.5]);
     title('Global Map');
     xlabel('y'); ylabel('x');
-   
     
 %     figure(7); clf(); hold on;
 %     Handles.Wx = plot(0,0,'r');
@@ -116,7 +121,7 @@ function TCPRead()
 %     xlabel('Time (Seconds)')
 %     ylabel('Linear Acceleration (M/Sec^2)')
 %     zoom on; grid on;
-    
+%     
 %     figure(9); clf(); hold on;
 %     Handles.Roll_G = plot(0,0,'r');
 %     Handles.Pitch_G = plot(0,0,'g');
@@ -189,7 +194,7 @@ function TCPRead()
         %Receive and save incoming IMU data
         %----------------------------------------------------------------------
         
-        if (false)%get(p, 'BytesAvailable') > 0 %(false)
+        if false
             disp('Reading IMU...');
  
             IMU = Parse_IMU_Serial(p);   % Read over TCP and save IMU values
@@ -214,7 +219,7 @@ function TCPRead()
             IMU_data.Attitude_A(counter + 1,:) = ProcessAttitude_Accel(IMU_data.Accel(counter,:), IMU_data.Attitude_A(counter,:));
             
             % Update vehicle yaw based on accelometer pitch and roll + current vehicle yaw 
-            %X(3) = DeadReckoningYaw(IMU_data.Gyros(counter,:), IMU_data.Dt(counter), IMU_data.Attitude_A(counter,1), IMU_data.Attitude_A(counter,2), X(3)); % Update vehicle pose based on gyros
+            X(3) = DeadReckoningYaw(IMU_data.Gyros(counter,:), IMU_data.Dt(counter), IMU_data.Attitude_A(counter,1), IMU_data.Attitude_A(counter,2), X(3)); % Update vehicle pose based on gyros
             
             Plot_IMU(Handles, IMU_data, counter);
             counter = counter + 1;
@@ -251,11 +256,11 @@ function TCPRead()
         
         %----------------------------------------------------------------------
         % Process incoming camera frame and triangulate pose
-        %----------------------------------------------------------------------
+        %---------------------------------------------------------------------
         
         if (Live == 0 || ((Live == 1) && CameraRead == 1))
             xFilter = x;  % Save all depth values
-            xFilter(xFilter > 1500) = -1;    % Flag depths that are too far
+            xFilter(xFilter > 2000) = -1;    % Flag depths that are too far
             xFilter(xFilter < 0) = -1;   % Flag negative depths
 
             % Filter out invalid data
@@ -306,14 +311,20 @@ function TCPRead()
             X = Localise(X,LandmarkMap);    % Part 3 original localisation
             Pose(:,k) = X;
             
+            [MV, MH] = PathFollower(X);
+            HexControl(0,0,MV,MH,t_hex);
+            %HexControl(0,0,0,0,t_hex);
+            Rot = 0;
             % Display Results of localisation
             fprintf('Pose: X = %3f, Y = %3f, Theta = %3f\n', Pose(1,k), Pose(2,k), rad2deg((Pose(3,k))));	% Print current pose 
-            set(GlobalMap.Localisation,'xdata',Pose(1,1:k),'ydata',Pose(2,1:k));  %Global Frame Plot of Vehicle Pose
+            fprintf('Rot_Command = %d; MV_Command = %d; MH_Command = %d;', Rot, MV, MH);
+            
+            set(GlobalMap.Localisation,'xdata',Pose(1,k),'ydata',Pose(2,k));  %Global Frame Plot of Vehicle Pose
             set(GlobalMap.Heading,'xdata',X(1),'ydata',X(2),'Udata',0.3*cos(X(3)),'Vdata',0.3*sin(X(3)));
+            set(GlobalMap.CurrentPos,'xdata',Pose(1,k),'ydata', Pose(2,k));
+            set(GlobalMap.Destination,'xdata',destination.x,'ydata',destination.y);
             
             k = k + 1;
-            
-            HexControl(0,0,0,0,t_hex);
             
             %----------------------------------------------------------------------
             % Process and Plot Occupancy Grid
@@ -745,46 +756,6 @@ function Cost = MultiTriangulate(RealLandmarks,X_Last)
     Cost = sqrt(sum(error_x(:).^2 + error_y(:).^2));
 end
 
-function F = Triangulateold(X, LandmarkMap)
-    global DA_Landmarks;
-    
-    F = zeros(DA_Landmarks.N * 2, 1);
-    u = 1;
-    
-    for i = 1:DA_Landmarks.N
-        id = DA_Landmarks.ID(i);
-        
-        mdx = DA_Landmarks.x(i) - X(1);
-        mdy = DA_Landmarks.y(i) - X(2);
-        
-        M_Range = sqrt(mdx^2 + mdy^2);
-        M_Bearing = atan(mdy/mdx);
-        
-        E_Range = sqrt(LandmarkMap.x(id)^2 + LandmarkMap.y(id)^2); 
-        E_Bearing = atan(LandmarkMap.y(id)/LandmarkMap.x(id));
-        
-        F(u) = abs(M_Range - E_Range);
-        F(u + 1) = abs(M_Bearing - E_Bearing);  
-        u = u + 2;
-    end
-    
-    F = sum(F.^2);
-end
-
-function Yaw = DeadReckoningYaw(gyros, dt, CurrentRoll, CurrentPitch, CurrentYaw)
-    wx = gyros(1);  r = CurrentRoll;
-    wy = gyros(2);  p = CurrentPitch;
-    wz = gyros(3);  y = CurrentYaw;
-    
-    if (~isnan(wy) && ~isnan(wz)) % If data is valid
-        Yaw = y + dt*((wy*sin(r) + wz*cos(r))/cos(p));
-    else
-        Yaw = CurrentYaw;
-    end
-    
-    rad2deg(Yaw)
-end
-
 %-------------------------------------------------------------------------
 % IMU Functions
 %-------------------------------------------------------------------------
@@ -847,39 +818,33 @@ function NewAttitude = ProcessAttitude_Accel(accel, CurrentAttitude)
 end
 
 function Plot_IMU(mh, imu, i)  
-%     set(mh.Wx, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Gyros(1:i,1)*(180/pi));
-%     set(mh.Wy, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Gyros(1:i,2)*(180/pi));
-%     set(mh.Wz, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Gyros(1:i,3)*(180/pi));
-%     s = sprintf('Gyroscope Plot: x(r), y(g), z(b)');
-%     set(mh.Title_Gyros, 'string', s);
+    set(mh.Wx, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Gyros(1:i,1)*(180/pi));
+    set(mh.Wy, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Gyros(1:i,2)*(180/pi));
+    set(mh.Wz, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Gyros(1:i,3)*(180/pi));
+    s = sprintf('Gyroscope Plot: x(r), y(g), z(b)');
+    set(mh.Title_Gyros, 'string', s);
+    
+    set(mh.Ax, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Accel(1:i,1));
+    set(mh.Ay, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Accel(1:i,2));
+    set(mh.Az, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Accel(1:i,3));
+    s = sprintf('Accelerometer Plot: x(r), y(g), z(b)');
+    set(mh.Title_Accel, 'string', s);
+    
+%     set(mh.Roll_G, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Attitude_G(1:i,1)*4*(180/pi));
+%     set(mh.Pitch_G, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Attitude_G(1:i,2)*4*(180/pi));
+%     set(mh.Yaw_G, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Attitude_G(1:i,3)*4*(180/pi));
+%     s = sprintf('Attitude_G Plot: Roll(r), Pitch(g), Yaw(b)');
+%     set(mh.Title_Attitude_G, 'string', s);
 %     
-%     set(mh.Ax, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Accel(1:i,1));
-%     set(mh.Ay, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Accel(1:i,2));
-%     set(mh.Az, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Accel(1:i,3));
-%     s = sprintf('Accelerometer Plot: x(r), y(g), z(b)');
-%     set(mh.Title_Accel, 'string', s);
-    
-    set(mh.Roll_G, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Attitude_G(1:i,1)*4*(180/pi));
-    set(mh.Pitch_G, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Attitude_G(1:i,2)*4*(180/pi));
-    set(mh.Yaw_G, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Attitude_G(1:i,3)*4*(180/pi));
-    s = sprintf('Attitude_G Plot: Roll(r), Pitch(g), Yaw(b)');
-    set(mh.Title_Attitude_G, 'string', s);
-    
-    set(mh.Roll_A, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Attitude_A(1:i,1)*(180/pi));
-    set(mh.Pitch_A, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Attitude_A(1:i,2)*(180/pi));
-    s = sprintf('Attitude_A Plot: Roll(r), Pitch(g)');
-    set(mh.Title_Attitude_A, 'string', s);
+%     set(mh.Roll_A, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Attitude_A(1:i,1)*(180/pi));
+%     set(mh.Pitch_A, 'xdata', imu.TimeStamp(1:i), 'ydata', imu.Attitude_A(1:i,2)*(180/pi));
+%     s = sprintf('Attitude_A Plot: Roll(r), Pitch(g)');
+%     set(mh.Title_Attitude_A, 'string', s);
 return;
 end
 
 function HexControl(RightVert, RightHor, LeftVert, LeftHor, t_hex)
     %Specify Movement of Hexapod between -128 to 127
-
-    RV = int8(128);
-    RH = int8(128);
-    LV = int8(128);
-    LH = int8(128);
-    
     RV = 128-RightVert;
     RH = 128+RightHor;
     LV = 128-LeftVert;
@@ -899,6 +864,52 @@ function clicker(h,~)
     cursorPoint = get(gca, 'currentpoint');
     global destination
     
-    destination.x = cursorPoint(1)
-    destination.y = cursorPoint(2)
+    destination.x = cursorPoint(1,1);
+    destination.y = cursorPoint(1,2);
+end
+
+function [MV, MH] = PathFollower(X)
+    global destination
+    
+    %Kp_Rotate = 30;%142;
+    %Kp_tV = 50;%84;
+    %Kp_tH = 50;%103;
+    
+    %DesiredYaw = atan2((destination.y - X(2)),(destination.x - X(1)));
+    %CurrentYaw = X(3); 
+    
+    MV = 0;
+    MH = 0;
+    
+    if (abs(destination.x - X(1)) >= 0.05)
+        MH = 60*((destination.x - X(1))/(abs(destination.x - X(1))));
+    end
+    if (abs(destination.y - X(2)) >= 0.05)
+        MV = 60*((destination.y - X(2))/(abs(destination.y - X(2))));
+    end
+    %MH = Kp_tH * (destination.x - X(1));
+    %MV = Kp_tV * (destination.y - X(2));
+    %Rot = Kp_Rotate * (CurrentYaw - DesiredYaw);
+    
+%     if MV > 127
+%         MV = 127;
+%     elseif MV < -128
+%         MV = -128;
+%     end
+%     
+%     if MH > 127
+%         MH = 127;
+%     elseif MH < -128
+%         MH = -128;
+%     end
+%     
+%     if Rot > 127
+%         Rot = 127;
+%     elseif Rot < -128
+%         Rot = -128;
+%     end
+%     
+%     Rot = floor(Rot);
+    MV = floor(MV);
+    MH = floor(MH);
 end
