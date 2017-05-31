@@ -1,6 +1,6 @@
 function IMU_Process()
     % Create TCP/IP object 't'. Specify server machine and port number.
-    t = tcpip('127.0.0.1', 15000);
+    t = tcpip('127.0.0.1', 13000);
     t.ByteOrder = 'littleEndian';%Set Endian to convert
     
     fopen(t)
