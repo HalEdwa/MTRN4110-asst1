@@ -15,13 +15,17 @@ function TCPRead()
     t_hex = tcpip('127.0.0.1', 14000);
     t_hex.ByteOrder = 'littleEndian';%Set Endian to convert
     
-    fopen(t_hex);
     
     % Camera Variables
     width = 160;
     height = 120;
-    Live = 1;
+    Live = 0;
+    ControllingHexapod = 0;
     CameraRead = 0;
+    
+    if Live == 1
+            fopen(t_hex);
+    end
     
     % IMU Variables
     Bias.Ax = -0.0175; Bias.Ay = -0.0868; Bias.Az = -1.0134;
@@ -325,12 +329,16 @@ function TCPRead()
             set(GlobalMap.Destination,'xdata',destination.x,'ydata',destination.y);
             
             k = k + 1;
+
+            if ControllingHexapod == 1
+                HexControl(0,0,0,0,t_hex);
+            end
             
             %----------------------------------------------------------------------
             % Process and Plot Occupancy Grid
             %----------------------------------------------------------------------
             
-            og.addObservations(-DepthScan(1,:), DepthScan(2,:));
+            og.addObservations(GlobalOOIs.x, GlobalOOIs.y, 0.25);
             og.visualise(guiH.og);
             og.decrement();
         end
