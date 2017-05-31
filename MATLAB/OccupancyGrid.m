@@ -6,11 +6,14 @@ classdef OccupancyGrid<handle
         Grid
         Resolution
         Landmarks
+        Pose%for displaying results mainly
         
         maxVal = 4000;
         incrAmount = 20;
         decrAmount = 2;
         decrMultiplier = 0.8;
+        
+        fov = 0.5*75*pi/180;%div by 2 because it's half the fov
     end
     
     methods
@@ -18,6 +21,7 @@ classdef OccupancyGrid<handle
                 
             obj.Grid = zeros(sizeX / resolution, sizeY / resolution);
             obj.Resolution = resolution;
+            obj.Pose = [0 0 pi/2];
         end
         
         function obj = addObservations(obj, x, y, diameter)
@@ -39,9 +43,21 @@ classdef OccupancyGrid<handle
             obj.Landmarks = [x;y];
         end
         
-        function obj = decrement(obj, ~)
-            obj.Grid = obj.Grid - obj.decrAmount;
-            obj.Grid = round(obj.Grid * obj.decrMultiplier);
+        function obj = decrement(obj, pose, ~)
+            pose(1) = round(pose(1)/obj.Resolution) + size(obj.Grid, 1)/2;
+            pose(2) = round(pose(2)/obj.Resolution);
+            obj.Pose = pose;
+            
+            for y = pose(2): size(obj.Grid, 1)
+                for x = (-round((y - pose(2))*sin(obj.fov)) : round((y - pose(2))*sin(obj.fov))) + pose(1)
+                    if x <= 0 || x > size(obj.Grid, 1)
+                        continue
+                    end
+%                     plot(x, y, 'r*');
+                    %these points are inside the fov of the robot
+                    obj.Grid(y, x) = obj.Grid(y, x) - obj.decrAmount;
+                end
+            end
             
             obj.Grid(obj.Grid< 0) = 0;
         end
