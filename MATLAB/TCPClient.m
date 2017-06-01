@@ -9,9 +9,10 @@ function TCPRead()
     % Camera Variables
     width = 160;
     height = 120;
-    Live = 1;
-    CameraRead = 1;
+    Live = 0;
+    CameraRead = 0;
     pathmode = 0;
+    controllingRobot = 0;
     
     % Landmark map Variables
     global DA_Landmarks;
@@ -45,10 +46,13 @@ function TCPRead()
     % Set up plot handles
     %-------------------------------------------------------------------------
     figure(6); clf(); hold on;
-    guiH.og = surf(zeros(60));
+    guiH.og.surf = surf(zeros(60));
+    guiH.og.pos = plot(0, 0, 'r*');
+    guiH.og.fov = plot(0, 0, 'g');
     og = OccupancyGrid(3, 3, 0.05);
     title('Occupancy Grid');
     xlabel('x'); ylabel('y'); zlabel('z');
+    axis([-10 70 -10 70])
     % Image Feed
     figure(1); clf();
     guiH.Image = imagesc();
@@ -123,14 +127,15 @@ function TCPRead()
         fopen(t);
     end
     
-    t_hex = tcpip('127.0.0.1', remote_port_hex);
-    t_hex.ByteOrder = 'littleEndian';%Set Endian to convert
-    fopen(t_hex);
-    
-    t_arm = tcpip('127.0.0.1', remote_port_arm);
-    t_arm.ByteOrder = 'littleEndian';%Set Endian to convert
-    fopen(t_arm);
-        
+    if controllingRobot == 1
+        t_hex = tcpip('127.0.0.1', remote_port_hex);
+        t_hex.ByteOrder = 'littleEndian';%Set Endian to convert
+        fopen(t_hex);
+
+        t_arm = tcpip('127.0.0.1', remote_port_arm);
+        t_arm.ByteOrder = 'littleEndian';%Set Endian to convert
+        fopen(t_arm);
+    end
     % Wait for incoming bytes from Camera TCP
     if (Live == 1)   
         while t.BytesAvailable == 0 
@@ -142,7 +147,7 @@ function TCPRead()
     disp('Connected to Servers');
     
     if (Live == 0)
-        load('recordedCameraData_240517.mat')
+        load('recordedCameraData_1433_31517.mat')
     end
     
     %-------------------------------------------------------------------------
@@ -242,7 +247,9 @@ function TCPRead()
             end
             
             [MV, MH, Rot] = PathFollower(X,setDest);
-            HexControl(0,Rot,MV,MH,t_hex);
+            if controllingRobot == 1
+                HexControl(0,Rot,MV,MH,t_hex);
+            end
             %HexControl(0,0,0,0,t_hex);
 
             % Display Results of localisation
@@ -254,7 +261,6 @@ function TCPRead()
             set(GlobalMap.CurrentPos,'xdata',Pose(1,k),'ydata', Pose(2,k));
             set(GlobalMap.Destination,'xdata',destination.x,'ydata',destination.y);
             
-            k = k + 1;
             
             %----------------------------------------------------------------------
             % Process and Plot Occupancy Grid
@@ -262,8 +268,10 @@ function TCPRead()
             
             %Populate occupancy grid
             og.addObservations(GlobalOOIs.x, GlobalOOIs.y, 0.12);
+            og.decrement(Pose(:, k));
             og.visualise(guiH.og);
-            og.decrement();
+            k = k + 1;
+
         end
         
         if (Live == 1)

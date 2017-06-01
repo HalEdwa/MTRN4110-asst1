@@ -14,7 +14,7 @@ classdef OccupancyGrid<handle
         decrMultiplier = 0.8;
         
         fov = 0.5*75*pi/180;%div by 2 because it's half the fov
-        visionDepth = 2;%how far can the robot see(m)
+        visionDepth = 2.5;%how far can the robot see(m)
     end
     
     methods
@@ -65,8 +65,7 @@ classdef OccupancyGrid<handle
             decrMask = shapeInserter(decrMask, roi);
 %             figure(2);
 %             surf(decrMask);
-            decrMask(decrMask > 0) = obj.decrAmount;
-            obj.Grid = obj.Grid - decrMask;
+            obj.Grid(decrMask > 0) = obj.Grid(decrMask > 0)*obj.decrMultiplier - obj.decrAmount;
             
 %             for y = 1: size(obj.Grid, 1)
 %                 for x = (-round((y - pose(2))*sin(obj.fov)) : round((y - pose(2))*sin(obj.fov))) + pose(1)
@@ -95,10 +94,17 @@ classdef OccupancyGrid<handle
                 
                 heightData = obj.Grid;
                 heightData(landMarkIdx) = max(max(heightData));
-                set(h, 'cdata', cdata, 'zdata', heightData);
+                set(h.surf, 'cdata', cdata, 'zdata', heightData);
             else
-                            
-                set(h, 'cdata', obj.Grid, 'zdata', obj.Grid);
+                lineLen = (obj.visionDepth / cos(obj.fov)) / obj.Resolution;
+                %robot fov (a v shape defined by 3 points):
+                x = [lineLen*cos(obj.Pose(3) - obj.fov), 0, lineLen*cos(obj.Pose(3) + obj.fov)] + obj.Pose(1);
+                y = [lineLen*sin(obj.Pose(3) - obj.fov), 0, lineLen*sin(obj.Pose(3) + obj.fov)] + obj.Pose(2);
+                set(h.fov, 'xdata', x, 'ydata', y);
+                %robot pos
+                set(h.pos, 'xdata', obj.Pose(1), 'ydata', obj.Pose(2));
+                %actual occupancy grid:
+                set(h.surf, 'cdata', obj.Grid, 'zdata', obj.Grid);
             end
         end
         
